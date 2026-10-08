@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Installs Rolecall for Claude Code (user scope).
-# Usage: ./install.sh              install
-#        ./install.sh --uninstall  remove everything install added
+# Installs Rolecall for Claude Code (user scope, or $CLAUDE_CONFIG_DIR if set).
+# Usage: ./install.sh                  install
+#        ./install.sh --upstreams-only install only the Upstreams, no team (benchmark Same-rules baseline)
+#        ./install.sh --uninstall      remove everything install added
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -23,11 +24,12 @@ pbakaus/impeccable impeccable impeccable
 OLD_AGENTS="karpathy superpowers mattpocock steipete caveman promax taste impeccable"
 CAVEMAN_OFF='{ "defaultMode": "off" }'
 
-settings=~/.claude/settings.json
+dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+settings="$dir"/settings.json
 cfg="${XDG_CONFIG_HOME:-$HOME/.config}/caveman/config.json"
 
 remove_old_agents() {
-  for a in $OLD_AGENTS; do rm -f ~/.claude/agents/team-$a.md; done
+  for a in $OLD_AGENTS; do rm -f "$dir"/agents/team-$a.md; done
 }
 
 backup_settings() {
@@ -37,9 +39,9 @@ backup_settings() {
 
 if [ "${1:-}" = "--uninstall" ]; then
   echo "Removing Role files and the /dev-team skill..."
-  for f in agents/team-*.md; do rm -f ~/.claude/agents/"$(basename "$f")"; done
+  for f in agents/team-*.md; do rm -f "$dir"/agents/"$(basename "$f")"; done
   remove_old_agents
-  rm -rf ~/.claude/skills/dev-team ~/.claude/agent-rules/steipete
+  rm -rf "$dir"/skills/dev-team "$dir"/agent-rules/steipete
 
   echo "Uninstalling plugins and marketplaces..."
   while read -r repo market plugin <&3; do
@@ -70,15 +72,22 @@ done 3<<< "$UPSTREAMS"
 echo "Fetching steipete/agent-rules..."
 tmp=$(mktemp -d)
 git clone --depth 1 -q https://github.com/steipete/agent-rules.git "$tmp/agent-rules"
-mkdir -p ~/.claude/agent-rules/steipete
-cp -R "$tmp/agent-rules/project-rules" "$tmp/agent-rules/global-rules" ~/.claude/agent-rules/steipete/
+mkdir -p "$dir"/agent-rules/steipete
+cp -R "$tmp/agent-rules/project-rules" "$tmp/agent-rules/global-rules" "$dir"/agent-rules/steipete/
+git -C "$tmp/agent-rules" rev-parse HEAD > "$dir"/agent-rules/steipete/COMMIT
 rm -rf "$tmp"
 
+if [ "${1:-}" = "--upstreams-only" ]; then
+  echo "Upstreams installed (no team). Restart Claude Code."
+  exit 0
+fi
+
 echo "Installing Role files and the /dev-team skill..."
-mkdir -p ~/.claude/agents ~/.claude/skills
+mkdir -p "$dir"/agents "$dir"/skills
 remove_old_agents
-cp agents/team-*.md ~/.claude/agents/
-cp -R skills/dev-team ~/.claude/skills/
+# Role files name steipete's rules under ~/.claude/; point them at this config dir instead.
+for f in agents/team-*.md; do sed "s|~/\.claude/|$dir/|g" "$f" > "$dir"/agents/"$(basename "$f")"; done
+cp -R skills/dev-team "$dir"/skills/
 
 echo "Enabling agent teams..."
 backup_settings

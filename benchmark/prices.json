@@ -1,0 +1,8 @@
+{
+  "about": "Anthropic API list prices, USD per million tokens, as of 2026-10-08. Cache writes: 5m TTL is 1.25x input, 1h TTL is 2x.",
+  "models": {
+    "claude-sonnet-5-5": { "input": 2, "output": 10, "cacheWrite5m": 2.5, "cacheWrite1h": 4, "cacheRead": 0.2 },
+    "claude-opus-5-5": { "input": 4, "output": 20, "cacheWrite5m": 5, "cacheWrite1h": 8, "cacheRead": 0.2 },
+    "claude-haiku-5-5": { "input": 0.1, "output": 0.5, "cacheWrite5m": 0.125, "cacheWrite1h": 0.2, "cacheRead": 0.01 }
+  }
+}

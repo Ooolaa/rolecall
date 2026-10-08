@@ -55,6 +55,10 @@ _Avoid_: Control, plugin baseline
 One of the three setups a benchmark task is run under: Team run, Same-rules baseline or Bare baseline.
 _Avoid_: Variant, condition
 
+**Trial**:
+One Arm run on one benchmark task, once. The full benchmark is 54 Trials; the pilot is three, one per Arm on task 1.
+_Avoid_: Run (alone, collides with Team run), attempt
+
 **Trap**:
 A known mistake seeded into a benchmark task that a script can check, such as unvalidated input, an unneeded new dependency, scope-creep bait or a broken existing caller.
 _Avoid_: Gotcha, test case
