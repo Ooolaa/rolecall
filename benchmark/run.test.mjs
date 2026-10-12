@@ -45,3 +45,10 @@ test('checkArm accepts an empty dir only for the Bare baseline', async () => {
   await writeFile(join(dir, 'settings.json'), JSON.stringify({ hooks: { SessionStart: [] } }));
   assert.deepEqual(await checkArm(dir, 'bare'), ['settings.json has hooks']);
 });
+
+test('checkArm flags a Role file still pointing at the real ~/.claude', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'arm-'));
+  await mkdir(join(dir, 'agents'));
+  await writeFile(join(dir, 'agents', 'team-gatekeeper.md'), 'load `$HOME/.claude/agent-rules/steipete/`');
+  assert.ok((await checkArm(dir, 'team')).includes('agents/team-gatekeeper.md points at ~/.claude'));
+});

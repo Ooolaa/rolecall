@@ -61,6 +61,10 @@ export async function checkArm(dir, arm) {
     .map((k) => `${k}: want [${want[k].join(', ')}], have [${have[k].join(', ')}]`);
   const claudeMd = (await readFile(join(dir, 'CLAUDE.md'), 'utf8').catch(() => '')).trim();
   if (claudeMd !== (arm === 'same-rules' ? steipeteLine(dir) : '')) problems.push('unexpected CLAUDE.md');
+  // install.sh rewrites ~/.claude/ in Role files to this dir; a path it missed would read the real home dir.
+  for (const f of have.agents) {
+    if (/(~|\$HOME)\/\.claude\b/.test(await readFile(join(dir, 'agents', f), 'utf8'))) problems.push(`agents/${f} points at ~/.claude`);
+  }
   if (settings.hooks) problems.push('settings.json has hooks');
   if (Boolean(settings.env?.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS) !== (arm === 'team')) problems.push('agent teams setting');
   return problems;
