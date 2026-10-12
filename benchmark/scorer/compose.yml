@@ -21,6 +21,10 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:changethis@db:5432/app
       UV_LINK_MODE: copy
+      # The container runs as root: on Linux, directories it creates in /work are root-owned and the
+      # scorer can't delete them. Keep the venv and bytecode out of /work.
+      UV_PROJECT_ENVIRONMENT: /venv
+      PYTHONDONTWRITEBYTECODE: "1"
       TESTS: ${TESTS:?}
     command:
       - bash

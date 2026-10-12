@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cp, mkdtemp, readdir, readFile, stat } from 'node:fs/promises';
+import { cp, mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +17,13 @@ const git = (cwd, ...args) => execFileSync('git', args, { cwd, stdio: 'pipe' });
 // One shallow checkout of the pinned template, reused across runs.
 async function pinnedTemplate() {
   const dir = join(tmpdir(), `rolecall-template-${commit.slice(0, 12)}`);
-  if (await stat(join(dir, '.git')).catch(() => null)) return dir;
+  // macOS purges old files from tmpdir, so a cached checkout can lose files; re-clone it then.
+  if (await stat(join(dir, '.git')).catch(() => null)) {
+    try {
+      if (!git(dir, 'status', '--porcelain').length) return dir;
+    } catch {}
+    await rm(dir, { recursive: true, force: true });
+  }
   const tmp = await mkdtemp(join(tmpdir(), 'rolecall-clone-'));
   git(tmp, 'init', '-q');
   git(tmp, 'fetch', '-q', '--depth', '1', repo, commit);
