@@ -19,6 +19,8 @@ mattpocock/skills mattpocock mattpocock-skills
 nextlevelbuilder/ui-ux-pro-max-skill ui-ux-pro-max-skill ui-ux-pro-max
 Leonxlnx/taste-skill taste-skill taste-skill
 pbakaus/impeccable impeccable impeccable
+trailofbits/skills trailofbits sharp-edges
+trailofbits/skills trailofbits differential-review
 "
 # Person-named agent files from before the Roles were named by job.
 OLD_AGENTS="karpathy superpowers mattpocock steipete caveman promax taste impeccable"
@@ -44,11 +46,14 @@ if [ "${1:-}" = "--uninstall" ]; then
   rm -rf "$dir"/skills/dev-team "$dir"/agent-rules/steipete
 
   echo "Uninstalling plugins and marketplaces..."
+  # Uninstall every plugin before removing marketplaces, since one marketplace can hold several.
   while read -r repo market plugin <&3; do
     [ -n "$repo" ] || continue
     claude plugin uninstall "$plugin@$market" || true
-    claude plugin marketplace remove "$market" || true
   done 3<<< "$UPSTREAMS"
+  for market in $(awk 'NF { print $2 }' <<< "$UPSTREAMS" | sort -u); do
+    claude plugin marketplace remove "$market" || true
+  done
 
   echo "Disabling agent teams..."
   backup_settings
@@ -63,9 +68,10 @@ if [ "${1:-}" = "--uninstall" ]; then
 fi
 
 echo "Adding plugin marketplaces and installing plugins..."
+added=" "
 while read -r repo market plugin <&3; do
   [ -n "$repo" ] || continue
-  claude plugin marketplace add "$repo"
+  case "$added" in *" $market "*) ;; *) claude plugin marketplace add "$repo"; added="$added$market " ;; esac
   claude plugin install "$plugin@$market" -y
 done 3<<< "$UPSTREAMS"
 

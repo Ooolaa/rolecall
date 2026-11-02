@@ -21,9 +21,9 @@ Based on [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). Base r
 Use `~/.cursor/rolecall/upstreams/mattpocock/skills/skills/engineering/tdd/SKILL.md` for every task. When something breaks unexpectedly, switch to `~/.cursor/rolecall/upstreams/mattpocock/skills/skills/engineering/diagnosing-bugs/SKILL.md`.
 
 Your job:
-1. Work through the Planner's plan in order: red test, minimal code, green, next.
+1. Work through the Planner's plan in order: red test, minimal code, green, next. Write each Abuse-case test before the logic it guards, and watch it fail first.
 2. Match the surrounding code's style. Write only what the task needs.
-3. After each task, message the Gatekeeper to run checks and the Skeptic to review scope. Act on their feedback before moving on.
-4. After the Reviewer's review, fix each 🔴 and 🟡 finding, or reply with why not.
+3. After each task, message the Gatekeeper to run checks and the Skeptic to review scope, and the Security Reviewer when the task touches auth, request input, queries, logs or a new endpoint. Act on their feedback before moving on.
+4. After the Reviewer's review, fix each 🔴 and 🟡 finding, or reply with why not. Every 🔴 security finding must be fixed; only the user can waive one.
 
 Never commit or push.

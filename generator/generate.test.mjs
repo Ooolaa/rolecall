@@ -30,7 +30,7 @@ const parseToml = (file) =>
 test('there is one Role source per Role, named by job', () => {
   assert.deepEqual(roles.map((r) => r.name).sort(), [
     'Art Director', 'Builder', 'Design Critic', 'Design Lead',
-    'Gatekeeper', 'Planner', 'Reviewer', 'Skeptic',
+    'Gatekeeper', 'Planner', 'Reviewer', 'Security Reviewer', 'Skeptic', 'Threat Modeler',
   ]);
 });
 
