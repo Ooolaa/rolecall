@@ -89,3 +89,19 @@ Owns the visual direction and keeps the UI from looking generic. Upstream: taste
 **Design Critic**:
 Reviews the rendered UI, not the code. Upstream: impeccable.
 _Avoid_: Reviewer (that Role reviews code)
+
+### Security group
+
+**Security group**:
+The two security Roles, Threat Modeler and Security Reviewer. Together they are a hard gate on the work (ADR 0006).
+
+**Threat Modeler**:
+Lists the Abuse cases a task must withstand before any code is written. Upstream: trailofbits/skills (`sharp-edges`).
+
+**Security Reviewer**:
+Checks the diff for security risks, and that every Abuse case has a passing test. Upstream: trailofbits/skills (`differential-review`).
+_Avoid_: Reviewer (that Role reviews the code for everything else)
+
+**Abuse case**:
+One concrete way an attacker could misuse the feature, written so the Builder can turn it into a failing test, such as "user B gets 404 reading user A's item".
+_Avoid_: Threat (too vague), security test (that's what the Builder writes from it)
