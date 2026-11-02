@@ -1,6 +1,6 @@
 # Rolecall
 
-Eight well-known agent rule sets, turned into a team of eight coding roles (five engineers and three designers) that discuss a task, challenge each other, and build it together.
+Nine well-known agent rule sets, turned into a team of ten coding roles (five engineers, two security specialists and three designers) that discuss a task, challenge each other, and build it together.
 
 _Formerly `claude-dev-team`; the old URL redirects here._
 
@@ -17,11 +17,13 @@ Each Role is named by its job and based on one popular open-source project (its 
 | **Builder** | [mattpocock/skills](https://github.com/mattpocock/skills) | Implements test-first and debugs methodically | Source and tests |
 | **Gatekeeper** | [steipete/agent-rules](https://github.com/steipete/agent-rules) | Build, lint, tests, docs, changelog | Docs and changelog |
 | **Reviewer** | [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman) | Terse diff review and final summary | Nothing |
+| **Threat Modeler** | [trailofbits/skills](https://github.com/trailofbits/skills) (`sharp-edges`) | Before any code, lists the Abuse cases the task must withstand, each one a test the Builder writes first | Nothing |
+| **Security Reviewer** | [trailofbits/skills](https://github.com/trailofbits/skills) (`differential-review`) | Reviews the diff for security risks and checks every Abuse case has a passing test. The team can't wrap up until it passes | Nothing |
 | **Design Lead** | [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | Colors, type scale, spacing, component states, UX rules | Nothing |
 | **Art Director** | [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) | One clear visual direction, keeps the UI from looking like a generic AI template | Nothing |
 | **Design Critic** | [pbakaus/impeccable](https://github.com/pbakaus/impeccable) | Audits screenshots of the built UI and sends exact polish fixes | Nothing |
 
-For work with no UI, the lead skips the three design Roles.
+The Threat Modeler and Security Reviewer form the **Security group**, a hard gate: the team doesn't wrap up while a 🔴 security finding is open or an Abuse case lacks a passing test, unless you waive it (ADR 0006). For work with no UI, the lead skips the three design Roles.
 
 [Ponytail](https://github.com/DietrichGebert/ponytail) runs underneath all of them as an always-on rule: write only the code the task needs.
 
@@ -31,21 +33,24 @@ The `/dev-team` skill makes your Claude Code session the **team lead**. It spawn
 
 ```
 1. Discuss   Skeptic writes the brief, Gatekeeper finds the build/test
-             commands, Planner reads the code, Art Director and Design Lead
-             agree a visual direction and design spec. They challenge each other.
+             commands, Planner reads the code, Threat Modeler lists the
+             Abuse cases, Art Director and Design Lead agree a visual
+             direction and design spec. They challenge each other.
 2. Ask       Open questions come to you. The team waits for answers.
-3. Plan      Planner writes the plan, Skeptic pushes back once.
-             You approve it before any code is written.
-4. Build     Builder builds task by task, test-first.
-             Gatekeeper checks every task, Design Critic audits screenshots
-             of every visual task, Skeptic guards scope.
-5. Review    Reviewer reviews the diff, Builder fixes,
-             Gatekeeper runs final checks and updates docs.
-6. Wrap up   You get a summary and a draft commit message.
+3. Plan      Planner writes the plan, with a test for every Abuse case
+             before its logic. Skeptic pushes back once. You approve it before any code is written.
+4. Build     Builder builds task by task, test-first, security tests red
+             before the logic. Gatekeeper checks every task, Security
+             Reviewer checks every task that touches a trust boundary,
+             Design Critic audits screenshots of every visual task,
+             Skeptic guards scope.
+5. Review    Reviewer and Security Reviewer review the diff, Builder
+             fixes, Gatekeeper runs final checks and updates docs.
+6. Wrap up   Once the Security Reviewer reports a pass, you get a summary and a draft commit message.
              Nothing is committed or pushed unless you say so.
 ```
 
-Every Role owns its own set of files, and the design Roles only advise, so they never overwrite each other's work.
+Every Role owns its own set of files, and the security and design Roles only advise, so they never overwrite each other's work.
 
 ## Install
 
@@ -59,9 +64,9 @@ cd rolecall
 
 The script:
 
-- installs the plugins for ponytail, caveman, superpowers, andrej-karpathy-skills, mattpocock/skills, ui-ux-pro-max, taste-skill and impeccable
+- installs the plugins for ponytail, caveman, superpowers, andrej-karpathy-skills, mattpocock/skills, ui-ux-pro-max, taste-skill, impeccable and trailofbits/skills (`sharp-edges` and `differential-review` only)
 - copies steipete/agent-rules to `~/.claude/agent-rules/steipete/`
-- copies the eight Role files to `~/.claude/agents/` (removing older person-named ones such as `team-karpathy.md`) and the skill to `~/.claude/skills/dev-team/`
+- copies the ten Role files to `~/.claude/agents/` (removing older person-named ones such as `team-karpathy.md`) and the skill to `~/.claude/skills/dev-team/`
 - enables agent teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) in `~/.claude/settings.json`, after backing it up
 - turns caveman's always-on voice off, so only the Reviewer talks that way
 
@@ -78,7 +83,7 @@ Requires the [Codex CLI](https://developers.openai.com/codex) and `git`.
 Then start Codex in your project and type `$rolecall <what you want built>`. The script:
 
 - clones each Upstream into `~/.codex/rolecall/upstreams/`, outside Codex's skill folders, so each Teammate reads only the skill files its Role names
-- copies the eight Role files to `~/.codex/agents/` and the lead skill to `~/.agents/skills/rolecall/`
+- copies the ten Role files to `~/.codex/agents/` and the lead skill to `~/.agents/skills/rolecall/`
 - changes no Codex settings (custom agents are on by default)
 
 Codex Teammates can't message each other, so the team runs in Relayed mode: the lead passes every objection and reply between them. The five advise-only Roles run with a read-only sandbox. Remove it all with `./install-codex.sh --uninstall`.
@@ -94,7 +99,7 @@ Requires [Cursor](https://cursor.com) with custom subagents and `git`.
 Then open your project in Cursor and type `/rolecall-cursor <what you want built>` in Agent chat. The script:
 
 - clones each Upstream into `~/.cursor/rolecall/upstreams/`, outside Cursor's skill and rule folders, so each Teammate reads only the skill files its Role names
-- copies the eight Role files to `~/.cursor/agents/` and the lead skill to `~/.cursor/skills/rolecall-cursor/` (not `rolecall`, because Cursor also loads the Codex lead from `~/.agents/skills/`)
+- copies the ten Role files to `~/.cursor/agents/` and the lead skill to `~/.cursor/skills/rolecall-cursor/` (not `rolecall`, because Cursor also loads the Codex lead from `~/.agents/skills/`)
 - changes no Cursor settings
 
 Like Codex, Cursor runs the team in Relayed mode, and the five advise-only Roles run read-only. steipete/agent-rules' `.mdc` rules are Cursor's own format, but they aren't installed as Cursor rules, which would apply to every Teammate; only the Gatekeeper reads them, from the clone. Cursor also loads agents and skills from `~/.claude/` and `~/.codex/`, so if you installed Rolecall for Claude Code too, ignore the `team-*` agents and `/dev-team` there. Remove it all with `./install-cursor.sh --uninstall`.
@@ -111,7 +116,7 @@ In the agent panel below the prompt, use ↑/↓ to select an agent and Enter to
 
 ## Things to know
 
-- **Cost:** every agent is a separate session, so the full team uses roughly eight times the tokens of one session (five without the design Roles). Use the team for real features, not one-line fixes. The lead will tell you when a task is too small.
+- **Cost:** every agent is a separate session, so the full team uses roughly ten times the tokens of one session (seven without the design Roles). Use the team for real features, not one-line fixes. The lead will tell you when a task is too small.
 - **Agent teams are experimental** in Claude Code. Sessions with in-process teammates can't be resumed, and task status sometimes lags.
 - **Overlaps:** superpowers and mattpocock/skills both ship test-driven development, debugging and review skills. Each Role file names the exact skills its Teammate uses and tells it to ignore the rest. Superpowers also loads a short guide into every session; the other Role files tell their Teammates to ignore it. Don't disable superpowers, because the Planner uses it.
 - **Delegation changes:** with agent teams on, Claude may start teammates on its own when it delegates work. Set the variable to `0` to switch back.
@@ -122,7 +127,7 @@ In the agent panel below the prompt, use ↑/↓ to select an agent and Enter to
 ./install.sh --uninstall
 ```
 
-This removes the Role files, the `/dev-team` skill, steipete/agent-rules, the eight plugins and their marketplaces, and the agent-teams setting (after backing up `~/.claude/settings.json`). It also uninstalls those plugins if you had them before Rolecall.
+This removes the Role files, the `/dev-team` skill, steipete/agent-rules, the ten plugins and their marketplaces, and the agent-teams setting (after backing up `~/.claude/settings.json`). It also uninstalls those plugins if you had them before Rolecall.
 
 ## Changing a Role
 

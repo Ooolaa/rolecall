@@ -20,6 +20,7 @@ JuliusBrussee/caveman
 nextlevelbuilder/ui-ux-pro-max-skill
 Leonxlnx/taste-skill
 pbakaus/impeccable
+trailofbits/skills
 "
 ROLECALL=~/.cursor/rolecall
 AGENTS=~/.cursor/agents
