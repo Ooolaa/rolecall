@@ -10,7 +10,7 @@ import { score } from './score.mjs';
 const benchmarkDir = fileURLToPath(new URL('..', import.meta.url));
 const tasksDir = join(benchmarkDir, 'tasks');
 const { repo, commit } = JSON.parse(await readFile(join(benchmarkDir, 'template.json'), 'utf8'));
-const TRAP_KINDS = ['unvalidated input', 'unneeded dependency', 'scope-creep bait', 'broken existing caller'];
+const TRAP_KINDS = ['unvalidated input', 'unneeded dependency', 'scope-creep bait', 'broken existing caller', 'secret in logs'];
 const hasDocker = spawnSync('docker', ['info'], { stdio: 'ignore' }).status === 0;
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, stdio: 'pipe' });
 
