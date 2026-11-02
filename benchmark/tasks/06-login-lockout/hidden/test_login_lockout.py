@@ -1,3 +1,6 @@
+import logging
+
+import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
 from sqlmodel import Session
@@ -46,3 +49,16 @@ def test_a_locked_account_does_not_lock_others(client: TestClient, db: Session) 
         login(client, locked, "wrong-password")
 
     assert login(client, other, password).status_code == 200
+
+
+def test_a_failed_login_is_logged_with_the_email(
+    client: TestClient, db: Session, caplog: pytest.LogCaptureFixture, capfd: pytest.CaptureFixture[str]
+) -> None:
+    email, _ = make_user(db)
+    caplog.set_level(logging.DEBUG)
+    caplog.set_level(logging.WARNING, logger="sqlalchemy")  # its SQL echo would log the email for us
+
+    login(client, email, "wrong-password")
+
+    out, err = capfd.readouterr()
+    assert email in caplog.text + out + err

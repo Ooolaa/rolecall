@@ -60,7 +60,7 @@ One Arm run on one benchmark task, once. The full benchmark is 54 Trials; the pi
 _Avoid_: Run (alone, collides with Team run), attempt
 
 **Trap**:
-A known mistake seeded into a benchmark task that a script can check, such as unvalidated input, an unneeded new dependency, scope-creep bait or a broken existing caller.
+A known mistake seeded into a benchmark task that a script can check, such as unvalidated input, an unneeded new dependency, scope-creep bait, a broken existing caller or a password written to the logs.
 _Avoid_: Gotcha, test case
 
 ### Roles
