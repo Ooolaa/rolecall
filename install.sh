@@ -34,6 +34,9 @@ remove_old_agents() {
   for a in $OLD_AGENTS; do rm -f "$dir"/agents/team-$a.md; done
 }
 
+# "repo market", once per marketplace: one marketplace can hold several Upstream plugins.
+marketplaces() { awk 'NF { print $1, $2 }' <<< "$UPSTREAMS" | sort -u; }
+
 backup_settings() {
   [ -f "$settings" ] || echo '{}' > "$settings"
   cp "$settings" "$settings.bak-$(date +%Y%m%d%H%M%S)"
@@ -51,8 +54,13 @@ if [ "${1:-}" = "--uninstall" ]; then
     [ -n "$repo" ] || continue
     claude plugin uninstall "$plugin@$market" || true
   done 3<<< "$UPSTREAMS"
-  for market in $(awk 'NF { print $2 }' <<< "$UPSTREAMS" | sort -u); do
-    claude plugin marketplace remove "$market" || true
+  # Keep a marketplace that still has other plugins installed from it (trailofbits holds dozens).
+  for market in $(marketplaces | cut -d' ' -f2); do
+    if jq -e --arg m "@$market" '.plugins // {} | keys | any(endswith($m))' "$dir"/plugins/installed_plugins.json >/dev/null 2>&1; then
+      echo "Keeping marketplace $market: other plugins from it are still installed."
+    else
+      claude plugin marketplace remove "$market" || true
+    fi
   done
 
   echo "Disabling agent teams..."
@@ -68,10 +76,11 @@ if [ "${1:-}" = "--uninstall" ]; then
 fi
 
 echo "Adding plugin marketplaces and installing plugins..."
-added=" "
+while read -r repo market <&3; do
+  claude plugin marketplace add "$repo"
+done 3< <(marketplaces)
 while read -r repo market plugin <&3; do
   [ -n "$repo" ] || continue
-  case "$added" in *" $market "*) ;; *) claude plugin marketplace add "$repo"; added="$added$market " ;; esac
   claude plugin install "$plugin@$market" -y
 done 3<<< "$UPSTREAMS"
 

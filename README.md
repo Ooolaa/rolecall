@@ -86,7 +86,7 @@ Then start Codex in your project and type `$rolecall <what you want built>`. The
 - copies the ten Role files to `~/.codex/agents/` and the lead skill to `~/.agents/skills/rolecall/`
 - changes no Codex settings (custom agents are on by default)
 
-Codex Teammates can't message each other, so the team runs in Relayed mode: the lead passes every objection and reply between them. The five advise-only Roles run with a read-only sandbox. Remove it all with `./install-codex.sh --uninstall`.
+Codex Teammates can't message each other, so the team runs in Relayed mode: the lead passes every objection and reply between them. The seven advise-only Roles run with a read-only sandbox. Remove it all with `./install-codex.sh --uninstall`.
 
 ### Cursor
 
@@ -102,7 +102,7 @@ Then open your project in Cursor and type `/rolecall-cursor <what you want built
 - copies the ten Role files to `~/.cursor/agents/` and the lead skill to `~/.cursor/skills/rolecall-cursor/` (not `rolecall`, because Cursor also loads the Codex lead from `~/.agents/skills/`)
 - changes no Cursor settings
 
-Like Codex, Cursor runs the team in Relayed mode, and the five advise-only Roles run read-only. steipete/agent-rules' `.mdc` rules are Cursor's own format, but they aren't installed as Cursor rules, which would apply to every Teammate; only the Gatekeeper reads them, from the clone. Cursor also loads agents and skills from `~/.claude/` and `~/.codex/`, so if you installed Rolecall for Claude Code too, ignore the `team-*` agents and `/dev-team` there. Remove it all with `./install-cursor.sh --uninstall`.
+Like Codex, Cursor runs the team in Relayed mode, and the seven advise-only Roles run read-only. steipete/agent-rules' `.mdc` rules are Cursor's own format, but they aren't installed as Cursor rules, which would apply to every Teammate; only the Gatekeeper reads them, from the clone. Cursor also loads agents and skills from `~/.claude/` and `~/.codex/`, so if you installed Rolecall for Claude Code too, ignore the `team-*` agents and `/dev-team` there. Remove it all with `./install-cursor.sh --uninstall`.
 
 ## Usage
 

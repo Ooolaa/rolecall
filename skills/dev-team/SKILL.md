@@ -42,6 +42,6 @@ Put these on the shared task list with dependencies:
 ## Rules
 
 - Wait for teammates; don't do their work yourself.
-- Only Builder edits source and tests, only Planner writes plans, and only Gatekeeper edits docs and the changelog. The design and security Roles advise only.
-- The Security group is a hard gate: don't wrap up while a 🔴 security finding is open or an Abuse case lacks a passing test, unless the user waives it. List any waiver in the summary. This prevents overwrites.
+- Only Builder edits source and tests, only Planner writes plans, and only Gatekeeper edits docs and the changelog. The design and security Roles advise only. This prevents overwrites.
+- The Security group is a hard gate: don't wrap up while a 🔴 security finding is open or an Abuse case lacks a passing test, unless the user waives it. List any waiver in the summary.
 - For a tiny task (one-line fix, a question), tell the user a team is overkill and do it directly unless they insist.
