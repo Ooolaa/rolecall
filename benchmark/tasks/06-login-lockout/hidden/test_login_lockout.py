@@ -51,14 +51,13 @@ def test_a_locked_account_does_not_lock_others(client: TestClient, db: Session) 
     assert login(client, other, password).status_code == 200
 
 
-def test_a_failed_login_is_logged_with_the_email(
-    client: TestClient, db: Session, caplog: pytest.LogCaptureFixture, capfd: pytest.CaptureFixture[str]
-) -> None:
+def test_a_failed_login_is_logged_with_the_email(client: TestClient, db: Session, caplog: pytest.LogCaptureFixture) -> None:
+    """Logged at INFO or above by the app's own code, so library debug output can't pass this for it."""
     email, _ = make_user(db)
-    caplog.set_level(logging.DEBUG)
-    caplog.set_level(logging.WARNING, logger="sqlalchemy")  # its SQL echo would log the email for us
+    caplog.set_level(logging.INFO)
 
     login(client, email, "wrong-password")
 
-    out, err = capfd.readouterr()
-    assert email in caplog.text + out + err
+    libraries = ("sqlalchemy", "httpx", "httpcore", "multipart", "python_multipart", "urllib3", "asyncio")
+    ours = [r for r in caplog.records if r.levelno >= logging.INFO and not r.name.startswith(libraries)]
+    assert any(email in r.getMessage() for r in ours)
