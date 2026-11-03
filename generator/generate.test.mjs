@@ -133,7 +133,7 @@ test('committed Role files are up to date', async () => {
   assert.deepEqual(await generate({ rolesDir, outDir: root, check: true }), []);
 });
 
-for (const script of ['install-codex.sh', 'install-cursor.sh']) {
+for (const script of ['install.sh', 'install-codex.sh', 'install-cursor.sh']) {
   test(`${script} clones every Upstream the Role files point at`, async () => {
     const installer = await readFile(join(root, script), 'utf8');
     for (const url of [...roles.map((r) => r.upstream.url), 'https://github.com/DietrichGebert/ponytail']) {
@@ -141,3 +141,28 @@ for (const script of ['install-codex.sh', 'install-cursor.sh']) {
     }
   });
 }
+
+// Adding a Role touches every place that lists the Roles; these catch the ones a hand edit misses.
+const LEADS = [
+  { file: 'skills/dev-team/SKILL.md', row: (r) => `| ${r.name.replaceAll(' ', '-')} | team-${r.id} |` },
+  { file: 'codex/skills/rolecall/SKILL.md', row: (r) => `| ${r.name} | rolecall_${r.id.replaceAll('-', '_')} |` },
+  { file: 'cursor/skills/rolecall-cursor/SKILL.md', row: (r) => `| ${r.name} | rolecall-${r.id} |` },
+];
+for (const lead of LEADS) {
+  test(`${lead.file} lists every Role in its table`, async () => {
+    const text = await readFile(join(root, lead.file), 'utf8');
+    for (const role of roles) assert.ok(text.includes(lead.row(role)), `missing row: ${lead.row(role)}`);
+  });
+}
+
+test('README lists every Role and states the right counts', async () => {
+  const readme = await readFile(join(root, 'README.md'), 'utf8');
+  for (const role of roles) assert.ok(readme.includes(`| **${role.name}** |`), role.name);
+  const NUMBERS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+  const count = (re) => [...readme.matchAll(re)].map((m) => NUMBERS.indexOf(m[1].toLowerCase()));
+  const advisers = count(/\b(\w+) advise-only Roles/gi);
+  assert.ok(advisers.length > 0);
+  assert.deepEqual(advisers, advisers.map(() => roles.filter((r) => r.edits === 'none').length));
+  assert.deepEqual(count(/team of (\w+) coding roles/gi), [roles.length]);
+  assert.deepEqual(count(/copies the (\w+) Role files/gi), [roles.length, roles.length, roles.length]);
+});
