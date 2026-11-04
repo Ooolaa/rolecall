@@ -37,7 +37,7 @@ node benchmark/run.mjs 01-item-search same-rules  # headless
 node benchmark/run.mjs 01-item-search team        # you drive it
 ```
 
-Every Trial gets a fresh clone of the pinned template, the task's `prompt.md` plus "No more information is available beyond this prompt; use your judgement.", model `claude-sonnet-5-5`, permissions bypassed, and 90 minutes. The two baselines run headlessly. A Team run needs an interactive session: the runner prints the exact command, and you type nothing except the scripted replies it lists, then answer whether you kept to them.
+Every Trial gets a fresh clone of the pinned template, the task's `prompt.md` plus "No more information is available beyond this prompt; use your judgement." (ADR 0007), model `claude-sonnet-5-5`, permissions bypassed, and 90 minutes. The two baselines run headlessly. A Team run needs an interactive session: the runner prints the exact command, and you type nothing except the scripted replies it lists, then answer whether you kept to them.
 
 Before each Trial the runner checks the Arm's config dir, and a headless session's loaded plugins, against what that Arm should have. Afterwards it scores the tree and appends one line to `results/runs.jsonl`:
 
