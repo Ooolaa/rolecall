@@ -41,6 +41,8 @@ test('linesChanged counts untracked files but not lockfiles or the generated cli
 test('checkArm accepts an empty dir only for the Bare baseline', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'arm-'));
   assert.deepEqual(await checkArm(dir, 'bare'), []);
+  await mkdir(join(dir, 'skills', 'synced'), { recursive: true }); // the claude.ai account's skills
+  assert.deepEqual(await checkArm(dir, 'bare'), []);
   assert.ok((await checkArm(dir, 'same-rules')).some((p) => p.startsWith('plugins:')));
   await writeFile(join(dir, 'settings.json'), JSON.stringify({ hooks: { SessionStart: [] } }));
   assert.deepEqual(await checkArm(dir, 'bare'), ['settings.json has hooks']);

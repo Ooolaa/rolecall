@@ -54,7 +54,8 @@ export async function checkArm(dir, arm) {
     plugins: Object.keys((await json('plugins/installed_plugins.json')).plugins ?? {}),
     'agent-rules': await list('agent-rules'),
     agents: await list('agents'),
-    skills: await list('skills'),
+    // Claude Code syncs the claude.ai account's skills into skills/synced on login, the same in every Arm.
+    skills: (await list('skills')).filter((f) => f !== 'synced'),
   };
   const problems = Object.keys(want)
     .filter((k) => !sameList(want[k], have[k]))
@@ -122,7 +123,8 @@ async function setup() {
     const env = armEnv(arm);
     await mkdir(env.CLAUDE_CONFIG_DIR, { recursive: true });
     await mkdir(env.XDG_CONFIG_HOME, { recursive: true });
-    if (arm !== 'bare' && !existsSync(join(env.CLAUDE_CONFIG_DIR, 'plugins', 'installed_plugins.json'))) {
+    // Every time, not just the first: install.sh is idempotent, and this picks up Upstreams added since.
+    if (arm !== 'bare') {
       execFileSync('./install.sh', arm === 'team' ? [] : ['--upstreams-only'], { cwd: repoDir, env, stdio: 'inherit' });
     }
     if (arm === 'same-rules') await writeFile(join(env.CLAUDE_CONFIG_DIR, 'CLAUDE.md'), `${steipeteLine(env.CLAUDE_CONFIG_DIR)}\n`);
