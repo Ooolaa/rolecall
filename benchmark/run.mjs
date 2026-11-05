@@ -165,8 +165,8 @@ function runHeadless(tree, env, prompt, plugins) {
       let e;
       try { e = JSON.parse(line); } catch { return; }
       if (e.type === 'system' && e.subtype === 'init') {
-        // @builtin plugins ship with Claude Code itself, so every Arm has them.
-        const loaded = (e.plugins ?? []).map((p) => p.source).filter((s) => !s.endsWith('@builtin'));
+        // @builtin plugins ship with Claude Code itself, and @synced ones come with the claude.ai account, so every Arm has them.
+        const loaded = (e.plugins ?? []).map((p) => p.source).filter((s) => !/@(builtin|synced)$/.test(s));
         if (!sameList(loaded, plugins)) {
           outcome = { status: 'invalid', note: `session loaded plugins [${loaded.join(', ')}]` };
           child.kill();
