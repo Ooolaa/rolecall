@@ -114,6 +114,21 @@ Open a project, start `claude`, and type:
 
 In the agent panel below the prompt, use ↑/↓ to select an agent and Enter to read its transcript or message it directly. For split panes (one per agent), run inside tmux or iTerm2 and set `"teammateMode": "auto"` in `~/.claude/settings.json`.
 
+### Watch the team
+
+To see the team at work as an office floor plan, run this from the Rolecall folder while a team is running:
+
+```bash
+node viz/server.mjs            # the newest team in ~/.claude/teams/
+node viz/server.mjs <team>     # or a team by name
+```
+
+Open the address it prints (`http://127.0.0.1:4747`; set `PORT` to change it). Each Teammate sits at a desk that shows its state and walks a memo over to whoever it messages (with reduced motion on, the memo appears on the desk instead). The Post room lists the messages between current Teammates and the lead (messages to `main` show as `team-lead`), and the title block shows the task counts and the project's git activity since the team started. The page refreshes every 2 seconds.
+
+The viewer is read-only and serves only `127.0.0.1`. It reads the team's config, tasks and transcripts from `~/.claude/` (or `CLAUDE_CONFIG_DIR`), and runs `git log` and `git diff` in the lead's project folder. Only the messages between Teammates reach the page, never tool output or prompts. It needs Node 22.18 or later, and git 2.40 or later for the git row. It works with Claude Code teams only.
+
+**Don't point it at a team whose project repo you don't trust.** The git read blocks filters from the repo's `.gitattributes` and your global attributes file, but a filter set in that repo's `.git/info/attributes` still runs. This is a known limitation, accepted for now.
+
 ## Things to know
 
 - **Cost:** every agent is a separate session, so the full team uses roughly ten times the tokens of one session (seven without the design Roles). Use the team for real features, not one-line fixes. The lead will tell you when a task is too small.

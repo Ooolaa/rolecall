@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Team office</title>
+<link rel="stylesheet" href="/app.css">
+<script type="module" src="/app.js"></script>
+</head>
+<body>
+<main class="sheet">
+  <h1 class="vh">Team office</h1>
+
+  <section class="plan" aria-labelledby="h-plan">
+    <h2 id="h-plan" class="vh">Floor plan</h2>
+    <svg id="plan" viewBox="-4 -4 1008 648" aria-labelledby="h-plan">
+      <defs>
+        <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <path class="hatch-line" d="M0,0 V6"/>
+        </pattern>
+      </defs>
+      <g id="rooms"></g>
+      <g id="worn"></g>
+      <g id="route"></g>
+      <g id="desks"></g>
+      <g id="air"></g>
+    </svg>
+  </section>
+
+  <section class="post" aria-labelledby="h-post">
+    <h2 id="h-post" class="vh">Post room</h2>
+    <p class="post-head"><span>Post room</span> <span id="status" class="muted" role="status"></span></p>
+    <ol id="ledger" role="log" aria-live="polite"></ol>
+    <p id="empty" class="muted empty">No memos yet</p>
+  </section>
+
+  <section class="title-block" aria-labelledby="h-title">
+    <h2 id="h-title" class="vh">Title block</h2>
+    <dl>
+      <div><dt>Project</dt><dd id="tb-project"></dd></div>
+      <div><dt>Git</dt><dd id="tb-git"></dd></div>
+      <div><dt>Phase</dt><dd id="tb-phase"></dd></div>
+      <div><dt>Tasks</dt><dd id="tb-tasks"></dd></div>
+      <div><dt>Last activity</dt><dd id="tb-last"></dd></div>
+    </dl>
+  </section>
+</main>
+</body>
+</html>
