@@ -13,6 +13,9 @@
   --room-design: #E9E6EE;
   --tint: 18%;
   --tint-idle: 8%;
+  /* Three tones per box: the top in its own colour, the left side mixed this far into ink, the right side further. */
+  --shade-l: 10%;
+  --shade-r: 20%;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -28,6 +31,8 @@
     --room-security: #221B1A;
     --room-design: #1F1C24;
     --tint: 28%;
+    --shade-l: 14%;
+    --shade-r: 26%;
   }
 }
 
@@ -65,69 +70,105 @@ body {
   .post { position: sticky; top: 16px; height: calc(100vh - 32px); }
 }
 
-#plan { display: block; width: 100%; height: auto; }
-/* Under 864px the plan keeps a legible scale and pans inside its own box. */
-.plan { overflow-x: auto; }
-@media (max-width: 863px) { #plan { min-width: 864px; } }
-
+/* Isometric office. Zoom and pan change only the viewBox; --z is the zoom, so text divided by it
+   keeps a steady on-screen size. */
+.plan { position: relative; }
+#plan { display: block; width: 100%; height: auto; touch-action: none; cursor: grab; }
+#plan.dragging { cursor: grabbing; }
+#plan:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 #plan text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-.floor-lead { fill: var(--room-lead); }
-.floor-strategy { fill: var(--room-strategy); }
-.floor-engineering { fill: var(--room-engineering); }
-.floor-security { fill: var(--room-security); }
-.floor-design { fill: var(--room-design); }
-.floor-visitors { fill: var(--surface); }
-.wall { fill: none; stroke: var(--ink); stroke-width: 6; stroke-linecap: square; }
-.room-label { font-size: 14px; font-weight: 600; fill: var(--ink); }
-.worn { fill: none; stroke: color-mix(in srgb, var(--ink) 15%, var(--ground)); stroke-linejoin: round; }
-.route { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
-.ghost { fill: none; stroke: none; }
-.memo-sq { fill: var(--accent); }
+.zoom { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
+@media (max-width: 719px) { .zoom { position: static; justify-content: flex-end; margin-top: 8px; } }
+.zoom button {
+  min-width: 44px; min-height: 44px; padding: 0 10px;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: 2px;
+  font: inherit; font-weight: 600; cursor: pointer;
+}
+.zoom button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.floor-strategy { --room: var(--room-strategy); }
+.floor-lead { --room: var(--room-lead); }
+.floor-security { --room: var(--room-security); }
+.floor-visitors { --room: var(--surface); }
+.floor-engineering { --room: var(--room-engineering); }
+.floor-design { --room: var(--room-design); }
+.floor-corridor { --room: var(--surface); }
+.tile { fill: var(--room); }
+.wall-l { fill: color-mix(in srgb, var(--ink) var(--shade-l), var(--ground)); }
+.wall-r { fill: color-mix(in srgb, var(--ink) var(--shade-r), var(--ground)); }
+.cap { fill: var(--ink); }
+.worn { fill: none; stroke: color-mix(in srgb, var(--ink) 15%, var(--ground)); stroke-linejoin: round; stroke-linecap: round; }
+.route { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
 .hatch-line { stroke: var(--ink); stroke-opacity: 0.25; stroke-width: 1.5; }
+.memo-sq { fill: var(--accent); }
+.memo-sq.gone { opacity: 0; }
 
 .desk { cursor: pointer; outline: none; }
 .desk .top { fill: color-mix(in srgb, var(--agent) var(--tint), var(--ground)); }
 .desk.idle .top { fill: color-mix(in srgb, var(--agent) var(--tint-idle), var(--ground)); }
-.desk .ring { fill: none; stroke: none; stroke-width: 2; }
-.desk:focus-visible .ring, .desk.selected .ring { stroke: var(--ink); }
+.desk .face-l { fill: color-mix(in srgb, var(--ink) var(--shade-l), color-mix(in srgb, var(--agent) 30%, var(--ground))); }
+.desk .face-r { fill: color-mix(in srgb, var(--ink) var(--shade-r), color-mix(in srgb, var(--agent) 30%, var(--ground))); }
+.desk:focus-visible .top, .desk.selected .top { stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; }
+.desk .key { fill: var(--ink); }
+.desk .mon { fill: var(--muted); }
+.desk .mon-l { fill: color-mix(in srgb, var(--ink) var(--shade-l), var(--muted)); }
+.desk .mon-r { fill: color-mix(in srgb, var(--ink) var(--shade-r), var(--muted)); }
 .desk .hatch { display: none; }
 .desk.blocked .hatch { display: inline; }
-.desk .name { font-size: 14px; font-weight: 600; fill: var(--ink); }
-.desk .caption { font-size: 12px; fill: var(--muted); }
-.desk.blocked .caption { fill: var(--ink); font-weight: 600; }
 .desk .pulse { fill: var(--agent); opacity: 0; }
-/* People: flat silhouettes, no outlines, no faces. */
-.figure .kit { fill: var(--muted); }
-.figure .key { fill: var(--ink); }
-.figure .torso { fill: color-mix(in srgb, var(--agent) 70%, var(--ink)); }
-.figure .head { fill: var(--ink); }
-.figure .limb { fill: none; stroke: color-mix(in srgb, var(--agent) 70%, var(--ink)); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
-.figure .arm-far .limb { stroke: color-mix(in srgb, var(--agent) 45%, var(--ink)); }
-.figure .leg { fill: none; stroke: color-mix(in srgb, var(--ink) 80%, var(--agent)); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
-.figure .leg.far { stroke: color-mix(in srgb, var(--ink) 60%, var(--agent)); }
-.figure .pose { opacity: 0; }
-.figure.working .type, .figure.idle .rest, .figure.blocked .hold { opacity: 1; }
-.figure .upper { transform-origin: 40px 52px; }
+.desk .hand { fill: color-mix(in srgb, var(--agent) 70%, var(--ink)); opacity: 0; }
+.desk.typing .hand { opacity: 1; }
+
+/* People: viewer-facing, no face. Each limb pivots at its joint. */
+.seat, .walker { pointer-events: none; }
+.figure .torso, .figure .hand { fill: color-mix(in srgb, var(--agent) 70%, var(--ink)); }
+.figure .limb { fill: none; stroke: color-mix(in srgb, var(--agent) 70%, var(--ink)); stroke-width: 3.5; stroke-linecap: round; }
+.figure .leg { fill: none; stroke: color-mix(in srgb, var(--ink) 80%, var(--agent)); stroke-width: 4; stroke-linecap: round; }
+.figure .shoe, .figure .skull { fill: var(--ink); }
+.figure .upper { transform-origin: 0 -18px; }
+.figure .head { transform-origin: 0 -34px; }
+.figure .arm-l { transform-origin: -6px -32px; }
+.figure .arm-r { transform-origin: 6px -32px; }
+.figure .leg-l { transform-origin: -3px -18px; }
+.figure .leg-r { transform-origin: 3px -18px; }
+.figure.working .arm-l { transform: rotate(-20deg); }
+.figure.working .arm-r { transform: rotate(20deg); }
 .figure.idle .upper { transform: rotate(-8deg); }
-.figure.blocked .upper { transform: rotate(10deg); }
-.figure.away .person { opacity: 0; }
-.figure .leg-a, .figure .leg-b { transform-origin: 0 -26px; }
-.memo-sq.gone { opacity: 0; }
+.figure.blocked .arm-l { transform: rotate(160deg) scale(0.6); }
+.figure.blocked .arm-r { transform: rotate(-160deg) scale(0.6); }
+.figure.blocked .head { transform: rotate(10deg); }
+.figure.away { opacity: 0; }
+
+/* Labels and desk tags: never coloured by agent or accent, with a ground halo. */
+.room-label, .tag text {
+  fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: var(--ground); stroke-linejoin: round;
+}
+/* Room labels hold 14 px down to 0.5 px per unit, then shrink with the office so they never cover desks. */
+.room-label { font-size: calc(14px / max(var(--z, 1), 0.5)); font-weight: 600; stroke-width: calc(3px / max(var(--z, 1), 0.5)); }
+.tag text { font-size: calc(12px / var(--z, 1)); stroke-width: calc(3px / var(--z, 1)); }
+.tag .name { font-weight: 600; }
+.tag .caption { fill: var(--muted); }
+.tag.blocked .caption { fill: var(--ink); font-weight: 600; }
+#plan.far .tag { display: none; }
+#plan.far .tag.focus, #plan.far .tag.selected { display: inline; }
 
 /* Every keyframe and transition lives here, so reduced motion means nothing moves at all. */
 @media (prefers-reduced-motion: no-preference) {
   .desk .top { transition: fill 200ms; }
   .desk .pulse.on { animation: pulse 400ms ease-out; }
-  .figure .upper, .figure .person, .figure .pose { transition: transform 200ms, opacity 200ms; }
   .memo-sq.dropped { transition: opacity 200ms; }
-  .figure.working .arm-near .type { animation: type 450ms steps(2, jump-none) infinite; }
-  .figure.working .arm-far .type { animation: type 450ms steps(2, jump-none) -225ms infinite; }
-  .figure.walking .leg-a { animation: swing 320ms steps(2, jump-none) infinite; }
-  .figure.walking .leg-b { animation: swing 320ms steps(2, jump-none) -160ms infinite; }
+  .figure .upper, .figure .head, .figure .arm-l, .figure .arm-r { transition: transform 200ms; }
+  .desk.typing .hand-l { animation: type 450ms steps(2, jump-none) infinite; }
+  .desk.typing .hand-r { animation: type 450ms steps(2, jump-none) -225ms infinite; }
+  .figure.walking .leg-l { animation: swing 600ms steps(2, jump-none) infinite; }
+  .figure.walking .leg-r { animation: swing 600ms steps(2, jump-none) -300ms infinite; }
+  .figure.walking .arm-l { animation: counter 600ms steps(2, jump-none) -300ms infinite; }
+  .figure.walking .arm-r { animation: counter 600ms steps(2, jump-none) infinite; }
 }
 @keyframes pulse { 50% { opacity: 0.3; } }
 @keyframes type { from { transform: none; } to { transform: translateY(-1.5px); } }
 @keyframes swing { from { transform: rotate(-18deg); } to { transform: rotate(18deg); } }
+@keyframes counter { from { transform: rotate(10deg); } to { transform: rotate(-10deg); } }
 
 /* Post room */
 .post-head {

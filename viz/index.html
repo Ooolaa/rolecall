@@ -13,18 +13,25 @@
 
   <section class="plan" aria-labelledby="h-plan">
     <h2 id="h-plan" class="vh">Floor plan</h2>
-    <svg id="plan" viewBox="-4 -4 1008 648" aria-labelledby="h-plan">
+    <svg id="plan" viewBox="-544 -112 1344 784" role="group" aria-labelledby="h-plan" tabindex="0">
       <defs>
         <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <path class="hatch-line" d="M0,0 V6"/>
         </pattern>
       </defs>
-      <g id="rooms"></g>
-      <g id="worn"></g>
-      <g id="route"></g>
-      <g id="desks"></g>
-      <g id="air"></g>
+      <g id="tiles"></g>
+      <g id="worn" aria-hidden="true"></g>
+      <g id="route" aria-hidden="true"></g>
+      <g id="walls" aria-hidden="true"></g>
+      <g id="objects"></g>
+      <g id="labels" aria-hidden="true"></g>
+      <g id="tags" aria-hidden="true"></g>
     </svg>
+    <div class="zoom">
+      <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+      <button type="button" id="zoom-out" aria-label="Zoom out">&minus;</button>
+      <button type="button" id="zoom-fit">Fit</button>
+    </div>
   </section>
 
   <section class="post" aria-labelledby="h-post">

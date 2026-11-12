@@ -260,6 +260,7 @@ There is no build step and no linter.
 - **Done when:** the README says how to run it, that it's read-only and local-only (127.0.0.1), what it reads (transcripts, tasks, git), and that it needs Node ≥ 22.18 and git ≥ 2.40 for the git row. Also state the waived known limitation: don't point the viewer at a team whose project repo you don't trust, because `.git/info/attributes` filters can run during the git read.
 
 ### 9. Characters (scope add from the user, 2026-11-11)
+- **Superseded by task 10:** the `<animateMotion>` walk and flat-plan figures below were replaced by task 10's isometric walkers (rAF, tile to tile, one mirror per leg). The reduced-motion and cap-of-3 rules carry over.
 - **Owner:** Builder-2. **Files:** `viz/app.js` and `viz/app.css` only, with no server change.
 - **What:** a seated person at each desk, which carries each memo down the corridor and back. The final figure (2026-11-11, settled by team-lead) is a PROFILE (side-view) person facing right, with typing arms and walking legs. It replaces the top-down version, and a brief front-facing correction was withdrawn. Design-Lead's "Side-view people spec", which Builder-2 holds, has the exact values:
   - **Desk:** each becomes a 130-wide elevation vignette: chair, the profile figure, a 96x38 desk panel holding the name and caption in ink, and a monitor.
@@ -297,6 +298,96 @@ There is no build step and no linter.
   - Security-Reviewer-2 re-checks the `app.js` diff.
   - Design-Critic audits screenshots at 1440 and 375 px, light and dark, plus one mid-walk frame.
 - **Done when:** all four pass with no open findings.
+
+### 10. Isometric office (scope add from the user, 2026-11-12; tasks 1-9 committed as d4159b8)
+- **Owner:** Builder-2. **Files:** `viz/app.js`, `viz/app.css`, `viz/index.html` and `viz/server.test.mjs` (tests only). `server.mjs` and its CSP are unchanged.
+- **What:** a 2.5D isometric office drawn as plain SVG from code replaces the flat plan. No libraries and no external assets. Scroll-wheel zoom and drag-to-pan.
+  - Carried over: the Post room, the title strip, desk states, the memo cap of 3 and the sender queue, and reduced motion.
+  - Text stays in `<text>` nodes set with `textContent`, so A7 holds.
+- **Source:** Design-Lead's "ISOMETRIC office spec (single version)", §1–13, which Builder-2 holds. It is authoritative for every value, as modified by AMENDMENTS 1, 2 and 3 (2026-11-12), which override the sections they name; a later amendment wins. Art-Director's edits arrive only as numbered amendments from Design-Lead. The decisions, with the amendment applied:
+  - **Projection** is 2:1 dimetric with `iso(i, j, z=0) = { x: (i-j)*32, y: (i+j)*16 - z }`, on a 24×16 tile floor.
+  - **Rooms** are given as [i0, j0, w, d] in tiles:
+    - Strategy [0,0,7,6], Lead [7,0,5,6], Security [12,0,7,6], Visitors [19,0,5,6]
+    - Corridor [0,6,24,2]
+    - Engineering [0,8,12,8], Design [12,8,12,8]
+
+    Desk slots are 2×1 at (i0+1+4k, j0+2+3r), with the seat at j-1.
+  - **Walls:**
+    - The perimeter back walls (i=0 and j=0) are 64 tall.
+    - Interior partitions and the perimeter front stubs (i=24 and j=16) are 8 tall, with an ink top face.
+    - Each wall segment is 1 tile long.
+    - The bottom rooms have 2-tile door gaps, and the top rooms are open to the corridor.
+    - Layers, back to front: floor, worn paths, back walls, sorted objects, front stubs, labels.
+    - Every box has three faces: the top is the material, the left is the material mixed `--shade-l` with ink, and the right is the material mixed `--shade-r` with ink. Materials: walls are `--ground`, desks are the agent tint, monitors are `--muted` (three-tone), the keyboard is ink, and the torso is the agent colour 70% into ink.
+    - Tokens: `--wall-l` and `--wall-r` are deleted. Amendment 3 (user-approved change to A2's 12/24 and "no new tokens") adds `--shade-l` and `--shade-r` as shipped: 10% and 20% in light, 14% and 26% in dark, used by every three-tone face (walls, desks, monitors).
+  - **Floor:**
+    - Flat, with no checker (amendment 2). Each room is one polygon in `var(--room-x)`. The corridor and Visitors are one polygon each in `var(--surface)`. No strokes or pattern. They sit in a floor layer that is never re-sorted.
+    - Worn paths are drawn above the tiles.
+  - **Desks and figures:**
+    - Furniture is limited to the desk, chair, monitor and keyboard. There are no props, no HUD and no bubbles. The side panels stay 2D. The hatch and pulse go on the desk's top face.
+    - Each figure is 44 tall, facing the viewer, built from limb `<g>`s with `transform-origin` set from CSS classes.
+    - Seated figures are partly hidden by their desk, using depth order.
+    - Poses follow §6. The blocked arms are `rotate(±160deg) scale(.6)`. A walker mirrors with `scale(-1,1)` once per trip leg, by the sign of the screen-x delta, never per step.
+  - **Depth** uses painter's order in one objects layer, keyed by `depthKey()` and stored as `data-depth`. Static nodes are sorted once. A walker is re-inserted whenever its floor(i)+floor(j)+0.5 changes.
+  - **Walkers:**
+    - `route(grid, from, to)` is a BFS: desks block a tile, partitions block a move between tiles, and doors are open. Neighbours are tried in the order +i, -i, +j, -j, so runs come out straight.
+    - Movement is driven by rAF from tile centre to tile centre, linear, taking `clamp(600, tiles*250, 1800)` ms per leg. This replaces task 9's path-length `walkMs`, so update that test as a spec change and not a regression.
+    - The memo drop, the pulse, the walk back, "Delivering memo", the cap and the queue all follow task 9.
+  - **Zoom and pan** work only by rewriting the viewBox:
+    - At 1× the viewBox is `-544 -112 1344 784`, with the zoom level `1344 / viewBox.width` clamped to 0.5–3× relative to fit. The zoom level is its own variable, separate from `--z`. The view opens at fit.
+    - The wheel factor is `1.0015^(-deltaY)` about the cursor, with `passive:false` and `preventDefault` only while the pointer is over the SVG.
+    - Drag uses pointer capture. A move under 4 px counts as a click.
+    - Pan is clamped so the viewBox centre stays within -512..768 × -64..640.
+    - ctrl+wheel (pinch) uses the same handler.
+    - Double-clicking the background fits the view.
+    - Keys: `+` and `-` zoom 1.25×, the arrow keys pan 48 units, and `0` fits.
+    - Three 44 px `<button>`s: "Zoom in", "Zoom out" and "Fit".
+    - The svg shows a visible 2 px ink focus outline.
+    - `--z` is the rendered px per unit (`svg.clientWidth / viewBox.width`), recomputed on zoom, pan and resize, and set via `svg.style.setProperty`.
+  - **Legibility:**
+    - Labels are sized by `calc(Npx / max(var(--z), 0.5))`. Room labels are 14 px on screen at 0.5 px per unit and above, never larger, and shrink with the office below that, so they don't cover desks or clip on a phone. The desk aria-labels carry the state.
+    - Desk tags float above the head on a solid `--ground` halo knockout, with no blur. When px per unit is below 0.5, the class `far` hides them, except on a focused or selected desk. Room labels anchor at `iso(i0+1.5, j0+d-1)`.
+  - **ARIA:**
+    - The svg is `role="group"` and `tabindex="0"`.
+    - Desks keep their role, labels and keys. Focusing an off-screen desk pans it into view.
+    - Floors, walls, figures and walkers are `aria-hidden`.
+- **Task 9's open polish items, done here:**
+  1. A walker passes behind walls through the depth order.
+  2. The hatch sits on the desk top face, under the tag layer, so it never covers text.
+  3. The caption becomes a floating tag above the head, clear of the figure and desk.
+- **New pure exports in `app.js`, tested from node like `walkMs`:**
+  - `iso`
+  - `depthKey`
+  - `route`
+  - `zoomAt(view, deltaY, px, py)`
+  - `clampView(view, floorBox)`
+- **Abuse case A13 (zoom and pan, page-only):**
+  - Handlers read only event numbers (`deltaY`, `clientX/Y`, `key`) and their own view state.
+  - The view transform and viewBox are built from numbers only, never from member names, message text or task text. They are set with a literal attribute name.
+  - Non-finite input is ignored, and zoom and pan clamp.
+  - Threat-Modeler sees no other new abuse cases beyond keeping A7(b) and A7(c) green.
+- **Order:** each step is followed by `node --test viz/`.
+  - **10a, red tests:**
+    - A13a: `zoomAt` with `deltaY` of ±1e9, ±Infinity or NaN, applied 1000×, keeps z finite and within 0.5–3. NaN leaves the view unchanged.
+    - A13b: `clampView` with huge or non-finite input keeps the centre inside the floor box.
+    - A13c: the A7(b) scan.
+    - A13d: a static scan finds no state, messages or tasks identifiers in the `wheel`, `pointer*` and `keydown` handler bodies.
+    - `iso` known points.
+    - `depthKey`: figure before desk on the same tile, and a walker between back and front partitions.
+    - `route`: Strategy→Engineering passes a door tile, and no route crosses a desk or partition.
+  - **10b:** the pure functions, green.
+  - **10c:** floor, walls, desks, figures and depth, as a static scene.
+  - **10d:** zoom, pan, buttons, keys and legibility.
+  - **10e:** walkers on routes and worn paths.
+- **Checks after 10e:**
+  - `node --test viz/` is green.
+  - Gatekeeper-2:
+    - reruns 6b (A7(c), S2, S3)
+    - reruns the layout checks and the task 9 character checks
+    - checks in the browser that 50 wheel steps in and out stay within 0.5–3, the ledger still scrolls, and a sub-4 px drag on a desk activates it, "Fit" and double-click fit the view, and desk tags hide when px per unit is below 0.5
+  - Security-Reviewer-2 re-checks the `app.js` diff, including A13.
+  - Design-Critic audits screenshots at 1440 and 375 px, light and dark, at 1×, 3× and 0.5× (the `far` class), plus one mid-walk frame.
+- **Done when:** all of those pass with no open findings.
 
 ## File ownership
 

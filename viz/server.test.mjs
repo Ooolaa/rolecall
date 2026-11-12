@@ -487,11 +487,12 @@ test('page: the ledger appends new rows, and starts over when a late message lan
   assert.deepEqual(ledgerUpdate([one, two], [one]), { reset: true, fresh: [one] });
 });
 
-test('page: a walk lasts route length / 160 per second, clamped to 0.6-1.8 s', async () => {
+// Spec change in task 10 (and its Amendment 1): a walk leg is timed by tiles on the route.
+test('page: a walk leg lasts 250 ms per tile, clamped to 0.6-1.8 s', async () => {
   const { walkMs } = await import('./app.js');
-  assert.equal(walkMs(16), 600);
-  assert.equal(walkMs(160), 1000);
-  assert.equal(walkMs(1000), 1800);
+  assert.equal(walkMs(1), 600);
+  assert.equal(walkMs(4), 1000);
+  assert.equal(walkMs(30), 1800);
 });
 
 test('page: at most 3 walk at once, a busy sender waits, and a sender with 3 queued skips the walk', async () => {
@@ -511,4 +512,115 @@ test('page: at most 3 walk at once, a busy sender waits, and a sender with 3 que
   walking.delete('A');
   walking.delete('B');
   assert.equal(nextWalk(queue, walking).text, '1', "A's next memo once A is back");
+});
+
+// Task 10: the isometric office (Design-Lead's spec). Pure view maths and routing first, then A13.
+test('iso: tile (i, j, z) maps to 2:1 dimetric SVG units, 32 x 16 per tile', async () => {
+  const { iso } = await import('./app.js');
+  assert.deepEqual(iso(0, 0), { x: 0, y: 0 });
+  assert.deepEqual(iso(1, 0), { x: 32, y: 16 });
+  assert.deepEqual(iso(0, 1), { x: -32, y: 16 });
+  assert.deepEqual(iso(24, 16, 64), { x: 256, y: 576 });
+});
+
+test('depthKey: back to front by i+j, walkers at their tile plus a half, figures before desks on a tie', async () => {
+  const { depthKey } = await import('./app.js');
+  const wallBehind = depthKey({ i: 3, j: 2, kind: 'wall' });
+  const walker = depthKey({ i: 3.4, j: 2.9, kind: 'walker' });
+  const wallInFront = depthKey({ i: 3, j: 3, kind: 'wall' });
+  assert.equal(walker, 5.5);
+  assert.ok(wallBehind < walker && walker < wallInFront, 'a walker sorts between the walls around it');
+  assert.ok(depthKey({ i: 4, j: 4, kind: 'figure' }) < depthKey({ i: 4, j: 4, kind: 'desk' }));
+});
+
+test('route: BFS over walkable tiles, through door gaps, never through partitions or desks', async () => {
+  const { makeGrid, route } = await import('./app.js');
+  const grid = makeGrid();
+  const path = route(grid, { i: 1, j: 1 }, { i: 2, j: 12 }); // Strategy seat -> Engineering
+  assert.ok(path, 'reachable');
+  assert.deepEqual(path[0], { i: 1, j: 1 });
+  assert.deepEqual(path.at(-1), { i: 2, j: 12 });
+  for (let k = 1; k < path.length; k++) {
+    assert.equal(Math.abs(path[k].i - path[k - 1].i) + Math.abs(path[k].j - path[k - 1].j), 1, 'one tile per step');
+  }
+  const door = path.findIndex((t, k) => k > 0 && path[k - 1].j === 7 && t.j === 8);
+  assert.ok(door > 0 && [5, 6].includes(path[door].i), "enters Engineering through its door (i 5-6)");
+  assert.equal(route(grid, { i: 6, j: 1 }, { i: 7, j: 1 }).length > 2, true, 'Strategy and Lead share a partition, so the walk goes round');
+  const blocked = makeGrid([{ i: 3, j: 6 }, { i: 3, j: 7 }]);
+  assert.ok(!route(blocked, { i: 1, j: 6 }, { i: 5, j: 6 }).some((t) => t.i === 3 && t.j >= 6), 'desk tiles are not walkable');
+  assert.equal(route(blocked, { i: 0, j: 0 }, { i: 3, j: 6 }), null, 'a blocked goal has no route');
+});
+
+test('A13a: zoomAt keeps the zoom finite and within 0.5-3, whatever the wheel sends', async () => {
+  const { zoomAt, HOME, MIN_ZOOM, MAX_ZOOM } = await import('./app.js');
+  for (const delta of [1e9, -1e9, Infinity, -Infinity, NaN, 120, -120]) {
+    let view = HOME;
+    for (let i = 0; i < 1000; i++) view = zoomAt(view, delta, 100, 50);
+    for (const k of ['x', 'y', 'w', 'h']) assert.ok(Number.isFinite(view[k]), `${k} after ${delta}`);
+    const z = HOME.w / view.w;
+    assert.ok(z >= MIN_ZOOM - 1e-9 && z <= MAX_ZOOM + 1e-9, `zoom ${z} after ${delta}`);
+    assert.ok(Math.abs(view.h / view.w - HOME.h / HOME.w) < 1e-9, 'aspect is kept');
+  }
+  assert.deepEqual(zoomAt(HOME, NaN, 0, 0), HOME);
+  assert.deepEqual(zoomAt(HOME, 120, NaN, 0), HOME);
+  const zoomed = zoomAt(HOME, -120, 100, 50);
+  assert.ok(zoomed.w < HOME.w, 'wheel up zooms in');
+  const under = (v) => [(100 - v.x) / v.w, (50 - v.y) / v.h];
+  assert.deepEqual(under(zoomed).map((n) => n.toFixed(6)), under(HOME).map((n) => n.toFixed(6)), 'the point under the cursor stays put');
+});
+
+test('A13b: clampView keeps the view centre inside the floor box, and survives non-finite input', async () => {
+  const { clampView, HOME, FLOOR } = await import('./app.js');
+  for (const [x, y] of [[1e12, 0], [-1e12, 0], [0, 1e12], [0, -1e12], [NaN, Infinity], [-Infinity, NaN]]) {
+    const v = clampView({ ...HOME, x, y }, FLOOR);
+    for (const k of ['x', 'y', 'w', 'h']) assert.ok(Number.isFinite(v[k]), `${k} after ${x},${y}`);
+    const cx = v.x + v.w / 2;
+    const cy = v.y + v.h / 2;
+    assert.ok(cx >= FLOOR.x0 && cx <= FLOOR.x1 && cy >= FLOOR.y0 && cy <= FLOOR.y1, `centre ${cx},${cy}`);
+  }
+  assert.deepEqual(clampView(HOME, FLOOR), HOME, 'the home view is already inside');
+});
+
+// Amendment 1: a walker turns once per leg, toward where the leg nets out, so staircase routes don't flicker.
+test('legFacing: one facing per leg from its net screen direction, keeping the last one when it nets to zero', async () => {
+  const { legFacing } = await import('./app.js');
+  const leg = (...pts) => pts.map(([i, j]) => ({ i, j }));
+  assert.equal(legFacing(leg([1, 1], [2, 1], [3, 1]), 1), 1, 'screen-right along +i');
+  assert.equal(legFacing(leg([3, 1], [2, 1], [1, 1]), 1), -1, 'screen-left along -i');
+  assert.equal(legFacing(leg([1, 1], [1, 2], [1, 3]), 1), -1, '+j moves screen-left');
+  assert.equal(legFacing(leg([1, 1], [2, 1], [2, 2], [3, 2], [3, 3], [4, 3]), -1), 1, 'a staircase nets to one direction');
+  assert.equal(legFacing(leg([1, 1], [2, 1], [2, 2]), -1), -1, 'a zero net keeps the previous facing');
+  assert.equal(legFacing(leg([1, 1]), 1), 1, 'a single tile keeps the previous facing');
+});
+
+// Amendments 1 and 2, and Design-Lead's check 12: depth comes from flat tones only, floors are one shape per
+// room, and the reset control is "Fit".
+test('iso page: no gradients, filters or shadows, no wall tokens, flat floors, and a Fit button', async () => {
+  const css = await readFile(join(here, 'app.css'), 'utf8');
+  for (const bad of ['gradient', 'filter', 'box-shadow', 'drop-shadow', '--wall-l', '--wall-r']) assert.ok(!css.includes(bad), bad);
+  const js = await readFile(join(here, 'app.js'), 'utf8');
+  assert.ok(!js.includes("'tile odd'"), 'no checker tiles');
+  const html = await readFile(join(here, 'index.html'), 'utf8');
+  assert.match(html, /id="zoom-fit"[^>]*>Fit</, 'a Fit button');
+  assert.ok(!html.includes('zoom-reset'), 'no Reset view button');
+});
+
+test('A13d: wheel, pointer and key handlers read only event numbers and the view, never server data', async () => {
+  const src = await readFile(join(here, 'app.js'), 'utf8');
+  const bodies = [];
+  for (const m of src.matchAll(/addEventListener\(\s*'(wheel|pointer\w+|keydown)'/g)) {
+    // The handler runs to the paren that closes this addEventListener call.
+    let depth = 0;
+    let i = m.index + 'addEventListener'.length;
+    for (; i < src.length; i++) {
+      if (src[i] === '(') depth++;
+      else if (src[i] === ')' && --depth === 0) break;
+    }
+    bodies.push([m[1], src.slice(m.index, i)]);
+  }
+  const kinds = new Set(bodies.map(([k]) => k));
+  for (const k of ['wheel', 'pointerdown', 'pointermove', 'keydown']) assert.ok(kinds.has(k), `no ${k} handler`);
+  for (const [kind, body] of bodies) {
+    assert.doesNotMatch(body, /\b(lastState|state|messages|rendered|queue|walkers)\b/, `${kind} handler touches server data`);
+  }
 });

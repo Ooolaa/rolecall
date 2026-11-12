@@ -33,6 +33,96 @@ export function deskState(name, tasks, messages, now) {
   return { state: 'idle', caption: 'Idle' };
 }
 
+// Isometric office maths. The plan is a 24 x 16 grid of tiles (i, j); iso() projects a tile point at
+// height z to SVG user units (2:1 dimetric, 64 x 32 per tile). The view is the SVG viewBox.
+export const iso = (i, j, z = 0) => ({ x: (i - j) * 32, y: (i + j) * 16 - z });
+
+// Draw order: a larger i+j of the front-most tile is nearer the viewer. Walkers sit half a step into
+// their tile, and a figure draws before its desk.
+export function depthKey({ i, j, kind }) {
+  if (kind === 'walker') return Math.floor(i) + Math.floor(j) + 0.5;
+  return i + j + (kind === 'desk' ? 0.0005 : 0);
+}
+
+export const GRID_W = 24;
+export const GRID_H = 16;
+// [i0, j0, w, d]. Top rooms (j0 = 0) are open to the corridor; bottom rooms have a 2-tile door.
+export const ROOM_TILES = new Map([
+  ['Strategy', [0, 0, 7, 6]], ['Lead', [7, 0, 5, 6]], ['Security', [12, 0, 7, 6]], ['Visitors', [19, 0, 5, 6]],
+  ['Engineering', [0, 8, 12, 8]], ['Design', [12, 8, 12, 8]],
+]);
+export const CORRIDOR = [0, 6, 24, 2];
+export const isDoor = (i0, w, i) => i === i0 + w / 2 - 1 || i === i0 + w / 2;
+const tileKey = (i, j) => `${i},${j}`;
+
+// Walkable tiles (all but desk footprints) and the partition edges between rooms.
+export function makeGrid(blocked = []) {
+  const walk = new Set();
+  for (let i = 0; i < GRID_W; i++) for (let j = 0; j < GRID_H; j++) walk.add(tileKey(i, j));
+  for (const t of blocked) walk.delete(tileKey(t.i, t.j));
+  const walls = new Set();
+  const wall = (a, b) => walls.add(`${a}|${b}`).add(`${b}|${a}`);
+  for (const [i0, j0, w, d] of ROOM_TILES.values()) {
+    if (i0 > 0) for (let j = j0; j < j0 + d; j++) wall(tileKey(i0 - 1, j), tileKey(i0, j));
+    if (j0 > 0) for (let i = i0; i < i0 + w; i++) if (!isDoor(i0, w, i)) wall(tileKey(i, j0 - 1), tileKey(i, j0));
+  }
+  return { walk, walls };
+}
+
+// Shortest walk between two tiles, as the list of tiles from `from` to `to`, or null.
+export function route(grid, from, to) {
+  const start = tileKey(from.i, from.j);
+  const goal = tileKey(to.i, to.j);
+  if (!grid.walk.has(start) || !grid.walk.has(goal)) return null;
+  const prev = new Map([[start, null]]);
+  const todo = [from];
+  while (todo.length) {
+    const t = todo.shift();
+    const k = tileKey(t.i, t.j);
+    if (k === goal) {
+      const path = [];
+      for (let c = k; c !== null; c = prev.get(c)) {
+        const [i, j] = c.split(',').map(Number);
+        path.unshift({ i, j });
+      }
+      return path;
+    }
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const n = { i: t.i + di, j: t.j + dj };
+      const nk = tileKey(n.i, n.j);
+      if (!grid.walk.has(nk) || prev.has(nk) || grid.walls.has(`${k}|${nk}`)) continue;
+      prev.set(nk, k);
+      todo.push(n);
+    }
+  }
+  return null;
+}
+
+// The view is the viewBox. Zoom z = HOME.w / view.w, kept within [MIN_ZOOM, MAX_ZOOM]; the view's
+// centre stays inside the floor box so the office can't be lost off screen.
+export const HOME = { x: -544, y: -112, w: 1344, h: 784 };
+export const FLOOR = { x0: -512, x1: 768, y0: -64, y1: 640 };
+export const MIN_ZOOM = 0.5;
+export const MAX_ZOOM = 3;
+const ASPECT = HOME.h / HOME.w;
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+export function clampView(view, box = FLOOR) {
+  const cx = Number.isFinite(view.x) ? view.x + view.w / 2 : (box.x0 + box.x1) / 2;
+  const cy = Number.isFinite(view.y) ? view.y + view.h / 2 : (box.y0 + box.y1) / 2;
+  return { x: clamp(cx, box.x0, box.x1) - view.w / 2, y: clamp(cy, box.y0, box.y1) - view.h / 2, w: view.w, h: view.h };
+}
+
+// Zoom about (px, py) in user units by 1.0015^(-deltaY), so the point under the cursor stays put.
+export function zoomAt(view, deltaY, px, py) {
+  if (![deltaY, px, py].every(Number.isFinite)) return view;
+  const w = clamp(view.w * 1.0015 ** clamp(deltaY, -2000, 2000), HOME.w / MAX_ZOOM, HOME.w / MIN_ZOOM);
+  const k = w / view.w;
+  return clampView({ x: px - (px - view.x) * k, y: py - (py - view.y) * k, w, h: w * ASPECT });
+}
+
+const zoomBy = (view, f) => zoomAt(view, -Math.log(f) / Math.log(1.0015), view.x + view.w / 2, view.y + view.h / 2);
+
 function el(tag, cls, text) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -98,21 +188,9 @@ function select(li) {
   document.getElementById('route').replaceChildren(...(d ? [svgPath(d, 'route')] : []));
 }
 
-// Floor plan. Rooms sit either side of an 80-unit corridor (270-350); [x, y, w, h, side of corridor].
-const BOXES = new Map([
-  ['Strategy', [0, 0, 310, 270, 'top']], ['Lead', [310, 0, 200, 270, 'top']],
-  ['Security', [510, 0, 310, 270, 'top']], ['Visitors', [820, 0, 180, 270, 'top']],
-  ['Engineering', [0, 350, 500, 290, 'bottom']], ['Design', [500, 350, 500, 290, 'bottom']],
-]);
-const CORRIDOR_Y = 310; // worn paths run down the middle
-const WALK_Y = 344; // walkers' feet: a ~67-tall person's head clears the top wall at 270
-// Each desk is a side-on vignette: a person seated at a desk and monitor, name and caption below.
-const DESK_W = 140;
-const DESK_H = 100;
-const PITCH_X = DESK_W + 12;
-const PITCH_Y = DESK_H + 8;
-const FEET_Y = 66; // floor line of the vignette; a walker's feet stand on it
-const SEAT_X = 40; // where the seated person is
+// The isometric scene. Layers, back to front: floor tiles, worn paths, the selected route and the
+// outer walls; then one depth-sorted objects layer (partitions, figures, desks, walkers); then the
+// labels and desk tags, which stay on top and keep a constant on-screen size via --z.
 const COLOURS = new Map([
   ['blue', '#2F6FDB'], ['green', '#2E8B57'], ['yellow', '#B58900'], ['purple', '#7B4FD6'],
   ['orange', '#D9661F'], ['pink', '#C2417A'], ['cyan', '#0E8A9E'], ['red', '#C93A3A'],
@@ -121,19 +199,13 @@ const NS = 'http://www.w3.org/2000/svg';
 const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 // Names keep their tail, because a -2 suffix is what tells agents apart.
 const clipName = (s) => (s.length > 16 ? `${s.slice(0, 10)}…${s.slice(-5)}` : s);
+const DESK_Z = 18;
+const SEATED_DROP = 16; // a seated person sits this much lower, so the desk hides the legs
 
 function svgEl(tag, cls) {
   const e = document.createElementNS(NS, tag);
   if (cls) e.setAttribute('class', cls);
   return e;
-}
-function svgRect(x, y, w, h, cls) {
-  const r = svgEl('rect', cls);
-  r.setAttribute('x', String(x));
-  r.setAttribute('y', String(y));
-  r.setAttribute('width', String(w));
-  r.setAttribute('height', String(h));
-  return r;
 }
 function svgText(x, y, str, cls) {
   const t = svgEl('text', cls);
@@ -147,150 +219,221 @@ function svgPath(d, cls) {
   p.setAttribute('d', d);
   return p;
 }
+// A polygon through tile points [i, j, z]; only numbers reach the attribute.
+function poly(points, cls) {
+  const p = svgEl('polygon', cls);
+  p.setAttribute('points', points.map(([i, j, z]) => { const q = iso(i, j, z); return `${q.x},${q.y}`; }).join(' '));
+  return p;
+}
+// The two viewer-facing sides and the top of an iso box, in draw order.
+function isoBox(i, j, w, d, h, z0, [left, right, top]) {
+  return [
+    poly([[i, j + d, z0], [i + w, j + d, z0], [i + w, j + d, z0 + h], [i, j + d, z0 + h]], left),
+    poly([[i + w, j, z0], [i + w, j + d, z0], [i + w, j + d, z0 + h], [i + w, j, z0 + h]], right),
+    poly([[i, j, z0 + h], [i + w, j, z0 + h], [i + w, j + d, z0 + h], [i, j + d, z0 + h]], top),
+  ];
+}
+const linePath = (pts) => `M${pts.map((p) => `${p.x},${p.y}`).join(' L')}`;
 
-// name -> { g, room, door, lane, walkLane, ex, ey, col, sx, sy, dx, dy }: a route leaves the desk's left edge
-// at (ex, ey) into the column gutter at x=col, so it never crosses another desk. A walk starts
-// where the person sits (sx, sy) and ends standing just left of the recipient's chair.
+// name -> { g, figure, tag, room, i, j (desk), seat, target, fx, fy }
 let desks = new Map();
 let deskKey = '';
+let grid = makeGrid();
+const routes = new Map();
 
-// One orthogonal route: desk -> lane inside its room -> door -> corridor -> door -> lane -> desk.
-function routeD(from, to, walk = false) {
+// The tiles a walk from `from`'s seat to beside `to`'s desk takes, cached until the scene rebuilds.
+function routeFor(from, to) {
   const a = desks.get(from);
   const b = desks.get(to);
   if (!a || !b || a === b) return null;
-  const out = walk ? `M${a.sx},${a.sy} H${a.col} V${a.walkLane}` : `M${a.ex},${a.ey} H${a.col} V${a.lane}`;
-  const back = walk ? `H${b.col} V${b.sy} H${b.dx + 14}` : `H${b.col} V${b.ey} H${b.ex}`;
-  if (a.room === b.room) return `${out} ${back}`;
-  return `${out} H${a.door} V${walk ? WALK_Y : CORRIDOR_Y} H${b.door} V${walk ? b.walkLane : b.lane} ${back}`;
+  const k = JSON.stringify([from, to]);
+  if (!routes.has(k)) routes.set(k, route(grid, a.seat, b.target));
+  return routes.get(k);
+}
+function routeD(from, to) {
+  const tiles = routeFor(from, to);
+  return tiles && tiles.length > 1 ? linePath(tiles.map((t) => iso(t.i + 0.5, t.j + 0.5))) : null;
 }
 
-function buildPlan(members) {
-  const rooms = document.getElementById('rooms');
-  const layer = document.getElementById('desks');
-  rooms.replaceChildren();
-  layer.replaceChildren();
-  desks = new Map();
-  const byRoom = new Map([...BOXES.keys()].map((r) => [r, []]));
-  for (const m of members) byRoom.get(department(m.agentType)).push(m);
-
-  for (const [room, [x, y, w, h, side]] of BOXES) {
-    const top = side === 'top';
-    const door = x + w / 2;
-    const edge = top ? y + h : y;
-    rooms.append(svgRect(x, y, w, h, `floor-${room.toLowerCase()}`));
-    rooms.append(svgPath(`M${door + 20},${edge} H${x + w} V${top ? y : y + h} H${x} V${edge} H${door - 20}`, 'wall'));
-    rooms.append(svgText(x + 16, top ? y + 28 : y + h - 16, room, 'room-label'));
-
-    const list = byRoom.get(room);
-    const cols = Math.max(1, Math.floor((w - 32 + 12) / PITCH_X));
-    const gx = x + (w - (cols * PITCH_X - 12)) / 2;
-    // ponytail: a room with more desks than rows spills past its wall; add paging if teams get that big.
-    list.forEach((m, i) => {
-      const dx = gx + (i % cols) * PITCH_X;
-      // Bottom rooms leave 90 units above their desks so a standing walker stays inside the room.
-      const dy = (top ? y + 40 : y + 90) + Math.floor(i / cols) * PITCH_Y;
-      const g = desk(m, room, dx, dy);
-      layer.append(g);
-      const lane = top ? y + h - 18 : y + 18;
-      const walkLane = top ? lane : y + 80;
-      desks.set(m.name, {
-        g, room, door, lane, walkLane, dx, dy,
-        ex: dx, ey: dy + DESK_H / 2, col: dx - 6,
-        sx: dx + SEAT_X, sy: dy + FEET_Y,
-      });
-    });
-  }
-  // The two ends of the corridor.
-  rooms.append(svgPath(`M0,270 V350 M1000,270 V350`, 'wall'));
+// A viewer-facing person, feet at (0, 0), 46 tall. No face. Pose classes on the outer g move the
+// limbs; colour comes from --agent on an ancestor.
+function person(pose) {
+  const f = svgEl('g', `figure ${pose}`);
+  f.setAttribute('aria-hidden', 'true');
+  const limb = (cls, d) => {
+    const g = svgEl('g', cls);
+    g.append(svgPath(d, cls.startsWith('leg') ? 'leg' : 'limb'));
+    return g;
+  };
+  const shoe = (x) => {
+    const r = svgEl('rect', 'shoe');
+    r.setAttribute('x', String(x));
+    r.setAttribute('y', '-3');
+    r.setAttribute('width', '5');
+    r.setAttribute('height', '3');
+    return r;
+  };
+  const torso = svgEl('rect', 'torso');
+  torso.setAttribute('x', '-6');
+  torso.setAttribute('y', '-34');
+  torso.setAttribute('width', '12');
+  torso.setAttribute('height', '16');
+  torso.setAttribute('rx', '4');
+  const head = svgEl('g', 'head');
+  const skull = svgEl('circle', 'skull');
+  skull.setAttribute('cy', '-40');
+  skull.setAttribute('r', '6');
+  head.append(skull);
+  const upper = svgEl('g', 'upper');
+  upper.append(limb('arm-l', 'M-6,-32 L-7,-21'), limb('arm-r', 'M6,-32 L7,-21'), torso, head);
+  f.append(limb('leg-l', 'M-3,-18 L-3,-3'), limb('leg-r', 'M3,-18 L3,-3'), shoe(-6), shoe(1), upper);
+  return f;
 }
 
-function desk(m, room, dx, dy) {
+function deskNode(m, room, di, dj, figure, tag) {
   const g = svgEl('g', 'desk idle');
-  g.setAttribute('transform', `translate(${dx},${dy})`);
   g.setAttribute('role', 'button');
   g.setAttribute('tabindex', '0');
   g.style.setProperty('--agent', COLOURS.get(m.color) ?? 'var(--ink)');
   g.dataset.name = m.name;
-  g.dataset.room = room;
+  const top = [[di, dj, DESK_Z], [di + 2, dj, DESK_Z], [di + 2, dj + 1, DESK_Z], [di, dj + 1, DESK_Z]];
+  const hatch = poly(top, 'hatch');
+  hatch.setAttribute('fill', 'url(#hatch)');
+  const key = iso(di + 1.25, dj + 0.275, DESK_Z + 1);
+  const hand = (cls, dx) => {
+    const c = svgEl('circle', `hand ${cls}`);
+    c.setAttribute('cx', String(key.x + dx));
+    c.setAttribute('cy', String(key.y));
+    c.setAttribute('r', '2.5');
+    return c;
+  };
   g.append(
     svgEl('title'),
-    svgRect(-4, -4, DESK_W + 8, DESK_H + 8, 'ring'),
-    svgRect(0, 0, DESK_W, DESK_H, 'top'),
-    svgRect(0, 0, DESK_W, DESK_H, 'pulse'),
-    svgRect(0, 0, DESK_W, DESK_H, 'hatch'),
+    ...isoBox(di, dj, 2, 1, DESK_Z, 0, ['face-l', 'face-r', 'top']),
+    hatch,
+    poly(top, 'pulse'),
+    // The monitor stands on the back edge at the left end, so it never hides the person behind the desk.
+    ...isoBox(di + 0.1, dj + 0.05, 0.6, 0.1, 16, DESK_Z, ['mon-l', 'mon-r', 'mon']),
+    poly([[di + 1, dj + 0.2, DESK_Z], [di + 1.5, dj + 0.2, DESK_Z], [di + 1.5, dj + 0.35, DESK_Z], [di + 1, dj + 0.35, DESK_Z]], 'key'),
+    hand('hand-l', -5),
+    hand('hand-r', 5),
   );
-  g.lastChild.setAttribute('fill', 'url(#hatch)');
-  g.append(seated(), svgText(10, 84, clipName(m.name), 'name'), svgText(10, 97, '', 'caption'));
   const open = () => openLatest(m.name);
-  g.addEventListener('click', open);
+  g.addEventListener('click', () => { if (!suppressClick) open(); });
   g.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
   });
+  g.addEventListener('focus', () => {
+    tag.classList.add('focus');
+    if (g.matches(':focus-visible')) reveal(iso(di + 1, dj + 0.5)); // keyboard focus only, not a click
+  });
+  g.addEventListener('blur', () => tag.classList.remove('focus'));
   return g;
 }
 
-// People are flat side-on silhouettes facing +x, drawn from code per desk so the pose classes
-// (.working/.idle/.blocked/.away on the outer g) reach every part. Colour comes from --agent.
-function rr(x, y, w, h, r, cls) {
-  const e = svgRect(x, y, w, h, cls);
-  e.setAttribute('rx', String(r));
-  return e;
-}
+function buildPlan(members) {
+  const tiles = document.getElementById('tiles');
+  const outer = document.getElementById('walls');
+  const objects = document.getElementById('objects');
+  const labels = document.getElementById('labels');
+  const tagLayer = document.getElementById('tags');
+  for (const layer of [tiles, outer, objects, labels, tagLayer]) layer.replaceChildren();
+  desks = new Map();
+  routes.clear();
 
-// Each arm has one path per pose, and the pose class shows one of them.
-function arm(cls, poses) {
-  const a = svgEl('g', `arm ${cls}`);
-  for (const [pose, d] of poses) a.append(svgPath(d, `limb pose ${pose}`));
-  return a;
-}
+  // Floors: one flat shape per room, and one for the corridor. Depth comes from the wall tones only.
+  const floor = (i0, j0, w, d, room) => {
+    const g = svgEl('g', `floor floor-${room}`);
+    g.setAttribute('aria-hidden', 'true');
+    g.append(poly([[i0, j0], [i0 + w, j0], [i0 + w, j0 + d], [i0, j0 + d]], 'tile'));
+    tiles.append(g);
+  };
+  for (const [room, [i0, j0, w, d]] of ROOM_TILES) floor(i0, j0, w, d, room.toLowerCase());
+  floor(...CORRIDOR, 'corridor');
 
-function seated() {
-  const f = svgEl('g', 'figure idle');
-  f.setAttribute('aria-hidden', 'true');
-  const furniture = svgEl('g', 'furniture');
-  furniture.append(
-    rr(26, 28, 4, 26, 2, 'kit'), rr(26, 52, 26, 4, 2, 'kit'), svgRect(37, 56, 3, 9, 'kit'), rr(30, 64, 18, 3, 1.5, 'kit'),
-    svgRect(62, 44, 66, 4, 'kit'), svgRect(120, 48, 4, 19, 'kit'),
-    rr(94, 18, 28, 20, 2, 'kit'), svgRect(106, 38, 4, 6, 'kit'), rr(70, 41, 16, 3, 1, 'key'),
-  );
-  const person = svgEl('g', 'person');
-  const upper = svgEl('g', 'upper');
-  const head = svgEl('circle', 'head');
-  head.setAttribute('cx', '41');
-  head.setAttribute('cy', '18');
-  head.setAttribute('r', '7');
-  upper.append(
-    arm('arm-far', [['type', 'M42,33 L54,43 L70,43'], ['rest', 'M42,33 L45,45 L55,47'], ['hold', 'M42,33 L56,41 L50,23']]),
-    rr(33, 26, 15, 27, 6, 'torso'),
-    head,
-    arm('arm-near', [['type', 'M44,32 L56,42 L74,42'], ['rest', 'M44,32 L47,44 L58,46'], ['hold', 'M44,32 L58,40 L52,22']]),
-  );
-  person.append(svgPath('M40,52 L58,53 L58,66', 'leg far'), svgPath('M42,52 L62,52 L62,66', 'leg'), upper);
-  f.append(furniture, person);
-  return f;
-}
+  // Outer walls along the back edges: 64 tall with a 4-unit ink cap. Every other wall is a stub.
+  const WALL = 64;
+  const STUB = 8;
+  const face = (pts, cls, h) => [poly(pts(0, h - 4), cls), poly(pts(h - 4, h), 'cap')];
+  for (let j = 0; j < GRID_H; j++) outer.append(...face((a, b) => [[0, j, a], [0, j + 1, a], [0, j + 1, b], [0, j, b]], 'wall-l', WALL));
+  for (let i = 0; i < GRID_W; i++) outer.append(...face((a, b) => [[i, 0, a], [i + 1, 0, a], [i + 1, 0, b], [i, 0, b]], 'wall-r', WALL));
 
-// A standing person for the walk: feet at (0, 0), facing +x, holding the memo out front.
-function standing() {
-  const f = svgEl('g', 'figure walking');
-  f.setAttribute('aria-hidden', 'true');
-  const head = svgEl('circle', 'head');
-  head.setAttribute('cy', '-60');
-  head.setAttribute('r', '7');
-  f.append(
-    svgPath('M0,-26 L0,0', 'leg far leg-a'),
-    svgPath('M0,-26 L0,0', 'leg leg-b'),
-    rr(-7, -52, 14, 27, 6, 'torso'),
-    head,
-    svgPath('M2,-46 L10,-36 L18,-40', 'limb'),
-    svgRect(15, -46, 8, 8, 'memo-sq'),
-  );
-  return f;
+  // Statics for the objects layer, sorted once by depth.
+  const statics = [];
+  const add = (node, i, j, kind) => {
+    const d = depthKey({ i, j, kind });
+    node.dataset.depth = String(d);
+    statics.push([d, node]);
+  };
+  const segment = (pts, cls) => {
+    const g = svgEl('g', 'partition');
+    g.setAttribute('aria-hidden', 'true');
+    g.append(...face(pts, cls, STUB));
+    return g;
+  };
+  const alongJ = (i, j) => (a, b) => [[i, j, a], [i, j + 1, a], [i, j + 1, b], [i, j, b]];
+  const alongI = (i, j) => (a, b) => [[i, j, a], [i + 1, j, a], [i + 1, j, b], [i, j, b]];
+  for (const [i0, j0, w, d] of ROOM_TILES.values()) {
+    if (i0 > 0) for (let j = j0; j < j0 + d; j++) add(segment(alongJ(i0, j), 'wall-l'), i0, j, 'wall');
+    if (j0 > 0) {
+      for (let i = i0; i < i0 + w; i++) if (!isDoor(i0, w, i)) add(segment(alongI(i, j0), 'wall-r'), i, j0, 'wall');
+    }
+  }
+  // The front stubs along the two viewer-facing edges of the floor close the dollhouse.
+  for (let j = 0; j < GRID_H; j++) add(segment(alongJ(GRID_W, j), 'wall-l'), GRID_W, j, 'wall');
+  for (let i = 0; i < GRID_W; i++) add(segment(alongI(i, GRID_H), 'wall-r'), i, GRID_H, 'wall');
+
+  // Desks 2 x 1 at (i0 + 1 + 4k, j0 + 2 + 3r), the seat tile behind at j - 1, the person facing +j.
+  const byRoom = new Map([...ROOM_TILES.keys()].map((r) => [r, []]));
+  for (const m of members) byRoom.get(department(m.agentType)).push(m);
+  const footprints = [];
+  for (const [room, [i0, j0, w]] of ROOM_TILES) {
+    const cols = Math.floor((w - 3) / 4) + 1;
+    // ponytail: past capacity (2 rows each: dj 2 and 5 in top rooms, 10 and 13 in bottom rooms) desks spill outside the room; page or shrink if teams get that big.
+    byRoom.get(room).forEach((m, n) => {
+      const di = i0 + 1 + 4 * (n % cols);
+      const dj = j0 + 2 + 3 * Math.floor(n / cols);
+      footprints.push({ i: di, j: dj }, { i: di + 1, j: dj });
+      const at = iso(di + 0.5, dj - 0.5);
+      const seat = svgEl('g', 'seat');
+      seat.setAttribute('transform', `translate(${at.x},${at.y + SEATED_DROP})`);
+      seat.style.setProperty('--agent', COLOURS.get(m.color) ?? 'var(--ink)');
+      const figure = person('idle');
+      seat.append(figure);
+      const tag = svgEl('g', 'tag');
+      tag.setAttribute('transform', `translate(${at.x},${at.y - 36})`);
+      const name = svgText(0, 0, clipName(m.name), 'name');
+      name.setAttribute('dy', '-1.25em');
+      tag.append(name, svgText(0, 0, '', 'caption'));
+      tagLayer.append(tag);
+      const g = deskNode(m, room, di, dj, figure, tag);
+      add(seat, di, dj - 1, 'figure');
+      add(g, di + 1, dj, 'desk');
+      desks.set(m.name, { g, figure, tag, room, i: di, j: dj, seat: { i: di, j: dj - 1 }, target: null });
+    });
+  }
+  grid = makeGrid(footprints);
+  // A walk ends beside the receiver's seat, or the nearest free tile around the desk.
+  for (const d of desks.values()) {
+    const options = [[d.i + 1, d.j - 1], [d.i - 1, d.j - 1], [d.i - 1, d.j], [d.i + 2, d.j], [d.i, d.j + 1]];
+    const free = options.find(([i, j]) => grid.walk.has(tileKey(i, j)));
+    d.target = free ? { i: free[0], j: free[1] } : d.seat;
+  }
+  statics.sort((a, b) => a[0] - b[0]);
+  objects.append(...statics.map(([, node]) => node));
+
+  // Room labels sit in each room's left (+j) corner, clear of the desks and their tags.
+  for (const [room, [i0, j0, , d]] of ROOM_TILES) {
+    const at = iso(i0 + 1.5, j0 + d - 1);
+    labels.append(svgText(at.x, at.y, room, 'room-label'));
+  }
 }
 
 function markDesk(name) {
-  for (const [n, { g }] of desks) g.classList.toggle('selected', n === name);
+  for (const [n, { g, tag }] of desks) {
+    g.classList.toggle('selected', n === name);
+    tag.classList.toggle('selected', n === name);
+  }
 }
 
 // A desk opens that agent's most recent memo in the Post room.
@@ -315,7 +458,7 @@ function renderPlan(state) {
   for (const m of state.messages) {
     sent.set(m.from, (sent.get(m.from) ?? 0) + 1);
     if (!desks.has(m.from) || !desks.has(m.to)) continue;
-    const k = JSON.stringify([m.from, m.to].sort());
+    const k = JSON.stringify([m.from, m.to]);
     pairs.set(k, (pairs.get(k) ?? 0) + 1);
   }
   const worn = [];
@@ -328,18 +471,105 @@ function renderPlan(state) {
   }
   document.getElementById('worn').replaceChildren(...worn);
 
-  for (const [name, { g, room }] of desks) {
+  for (const [name, { g, figure, tag, room }] of desks) {
     const ds = deskState(name, state.tasks, state.messages, now);
     const away = walkers.has(name);
     const caption = away ? 'Delivering memo' : ds.caption;
+    const pose = away ? 'away' : POSES.get(ds.state);
     g.classList.remove('idle', 'active', 'blocked');
     g.classList.add(ds.state);
-    g.querySelector('.figure').setAttribute('class', `figure ${away ? 'away' : POSES.get(ds.state)}`);
-    g.querySelector('.caption').textContent = clip(caption, 18);
+    g.classList.toggle('typing', pose === 'working');
+    figure.setAttribute('class', `figure ${pose}`);
+    tag.classList.toggle('blocked', ds.state === 'blocked');
+    tag.querySelector('.caption').textContent = clip(caption, 22);
     const n = sent.get(name) ?? 0;
     g.setAttribute('aria-label', `${name}, ${room}, ${caption}, ${n} ${n === 1 ? 'memo' : 'memos'}`);
     g.querySelector('title').textContent = `${name}\n${caption}`;
   }
+}
+
+// Zoom and pan only ever change the viewBox. The handlers read event numbers and the view, nothing else.
+let view = HOME;
+let press = null;
+let suppressClick = false;
+const ARROWS = new Map([['ArrowLeft', [-48, 0]], ['ArrowRight', [48, 0]], ['ArrowUp', [0, -48]], ['ArrowDown', [0, 48]]]);
+
+function setView(v) {
+  view = v;
+  const svg = document.getElementById('plan');
+  svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
+  // --z is rendered pixels per SVG unit, so text sized calc(Npx / var(--z)) shows at N px on screen.
+  // (HOME.w / v.w is the zoom level, used only for the clamp.)
+  const ppu = svg.getBoundingClientRect().width / v.w || 1;
+  svg.style.setProperty('--z', String(ppu));
+  svg.classList.toggle('far', ppu < 0.5);
+}
+
+function toUser(svg, cx, cy) {
+  const r = svg.getBoundingClientRect();
+  return { x: view.x + ((cx - r.left) * view.w) / r.width, y: view.y + ((cy - r.top) * view.h) / r.height };
+}
+
+// Focusing a desk that is off screen pans it into view.
+function reveal(p) {
+  if (p.x < view.x || p.x > view.x + view.w || p.y < view.y || p.y > view.y + view.h) {
+    setView(clampView({ ...view, x: p.x - view.w / 2, y: p.y - view.h / 2 }));
+  }
+}
+
+function wireView() {
+  const svg = document.getElementById('plan');
+  svg.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const p = toUser(svg, e.clientX, e.clientY);
+    const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY; // line mode (Firefox mouse wheels) to pixels
+    setView(zoomAt(view, dy, p.x, p.y));
+  }, { passive: false });
+  svg.addEventListener('pointerdown', (e) => {
+    if (e.button === 0) press = { x: e.clientX, y: e.clientY, start: view, id: e.pointerId, dragging: false };
+  });
+  svg.addEventListener('pointermove', (e) => {
+    if (!press || e.pointerId !== press.id) return;
+    if (!e.buttons) return end(e); // the button came up outside the window
+    const dx = e.clientX - press.x;
+    const dy = e.clientY - press.y;
+    if (!press.dragging && Math.hypot(dx, dy) < 4) return; // under 4 px is a click
+    if (!press.dragging) {
+      press.dragging = true;
+      svg.setPointerCapture(e.pointerId);
+      svg.classList.add('dragging');
+    }
+    const u = press.start.w / svg.clientWidth;
+    setView(clampView({ ...press.start, x: press.start.x - dx * u, y: press.start.y - dy * u }));
+  });
+  const end = (e) => {
+    if (!press || e.pointerId !== press.id) return;
+    if (press.dragging) {
+      suppressClick = true;
+      setTimeout(() => { suppressClick = false; }, 0);
+      svg.classList.remove('dragging');
+    }
+    press = null;
+  };
+  svg.addEventListener('pointerup', end);
+  svg.addEventListener('pointercancel', end);
+  svg.addEventListener('keydown', (e) => {
+    if (e.key === '+' || e.key === '=') setView(zoomBy(view, 1.25));
+    else if (e.key === '-' || e.key === '_') setView(zoomBy(view, 1 / 1.25));
+    else if (e.key === '0') setView(HOME);
+    else if (ARROWS.has(e.key)) {
+      const [dx, dy] = ARROWS.get(e.key);
+      setView(clampView({ ...view, x: view.x + dx, y: view.y + dy }));
+    } else return;
+    e.preventDefault();
+  });
+  document.getElementById('zoom-in').addEventListener('click', () => setView(zoomBy(view, 1.25)));
+  document.getElementById('zoom-out').addEventListener('click', () => setView(zoomBy(view, 1 / 1.25)));
+  document.getElementById('zoom-fit').addEventListener('click', () => setView(HOME));
+  // Double-clicking the floor fits the office; a desk's double-click is still a click on the desk.
+  svg.addEventListener('dblclick', (e) => { if (!e.target.closest('.desk')) setView(HOME); });
+  window.addEventListener('resize', () => setView(view)); // keep --z true to the rendered size
+  setView(HOME);
 }
 
 // Memo motion: the sender stands up and walks the memo along the route, the memo stays on the
@@ -352,7 +582,16 @@ const walkers = new Set();
 let lastState = null;
 const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export const walkMs = (length) => Math.round(Math.min(1800, Math.max(600, (length / 160) * 1000)));
+export const walkMs = (tiles) => Math.min(1800, Math.max(600, tiles * 250));
+
+// A leg faces the way it nets out on screen (+i is screen-right, +j screen-left), once, so a
+// staircase route doesn't flicker. A leg with no net sideways motion keeps the previous facing.
+export function legFacing(seq, prev) {
+  const a = seq[0];
+  const b = seq[seq.length - 1];
+  const dx = (b.i - a.i) - (b.j - a.j);
+  return dx < 0 ? -1 : dx > 0 ? 1 : prev;
+}
 
 export function enqueue(queue, m, max = 3) {
   if (queue.filter((q) => q.from === m.from).length >= max) return false;
@@ -377,7 +616,8 @@ function deliver(m, li) {
     dropMemo(m.to, false);
     return;
   }
-  if (!routeD(m.from, m.to) || document.hidden) return;
+  const tiles = routeFor(m.from, m.to);
+  if (!tiles || tiles.length < 2 || document.hidden) return;
   if (!enqueue(queue, m)) return flash(li);
   pump();
 }
@@ -388,12 +628,17 @@ function pump() {
 
 const refresh = () => lastState && renderPlan(lastState);
 
+// The memo lies on the receiver's desk top for 2 s, then fades.
 function dropMemo(name, pulse) {
   const d = desks.get(name);
   if (!d) return;
-  // Left on the desk top, beside the keyboard.
-  const memo = svgRect(d.dx + 88, d.dy + 34, 8, 8, 'memo-sq dropped');
-  document.getElementById('air').append(memo);
+  const at = iso(d.i + 0.35, d.j + 0.6, DESK_Z);
+  const memo = svgEl('rect', 'memo-sq dropped');
+  memo.setAttribute('x', String(at.x - 4));
+  memo.setAttribute('y', String(at.y - 4));
+  memo.setAttribute('width', '8');
+  memo.setAttribute('height', '8');
+  d.g.append(memo);
   setTimeout(() => memo.classList.add('gone'), 2000);
   setTimeout(() => memo.remove(), 2200);
   const p = pulse && d.g.querySelector('.pulse');
@@ -404,44 +649,63 @@ function dropMemo(name, pulse) {
   }
 }
 
-function walk(m) {
-  const d = routeD(m.from, m.to, true);
-  if (!d) return;
-  const air = document.getElementById('air');
-  const track = svgPath(d, 'ghost');
-  air.append(track);
-  const length = track.getTotalLength();
-  const ms = walkMs(length);
+// Re-insert a walker before the first object nearer the viewer, so walls and desks overlap it right.
+function placeByDepth(layer, node, depth) {
+  node.dataset.depth = String(depth);
+  for (const other of layer.children) {
+    if (other !== node && Number(other.dataset.depth) > depth) return layer.insertBefore(node, other);
+  }
+  layer.append(node);
+}
 
+function walk(m) {
+  const tiles = routeFor(m.from, m.to);
+  if (!tiles || tiles.length < 2) return;
+  const objects = document.getElementById('objects');
+  const ms = walkMs(tiles.length - 1);
   walkers.add(m.from);
-  const walker = standing();
-  walker.style.setProperty('--agent', desks.get(m.from).g.style.getPropertyValue('--agent'));
-  air.append(walker);
+  const node = svgEl('g', 'walker');
+  node.style.setProperty('--agent', desks.get(m.from).g.style.getPropertyValue('--agent'));
+  const body = person('walking');
+  const memo = svgEl('rect', 'memo-sq');
+  memo.setAttribute('x', '-4');
+  memo.setAttribute('y', '-30');
+  memo.setAttribute('width', '8');
+  memo.setAttribute('height', '8');
+  body.append(memo);
+  node.append(body);
   refresh();
 
-  // Upright the whole way: the walker faces its direction of travel and keeps facing that way on
-  // vertical runs.
+  let depth = null;
   let facing = 1;
-  const run = (back, done) => {
+  // Tile centre to tile centre at a steady pace. The one viewer-facing sprite mirrors once per leg.
+  const run = (seq, done) => {
+    const n = seq.length - 1;
     const t0 = performance.now();
-    let lastX = null;
+    facing = legFacing(seq, facing);
     const step = (now) => {
-      const k = Math.min(1, (now - t0) / ms);
-      const at = track.getPointAtLength((back ? 1 - k : k) * length);
-      if (lastX !== null && Math.abs(at.x - lastX) > 0.01) facing = at.x < lastX ? -1 : 1;
-      lastX = at.x;
-      walker.setAttribute('transform', `translate(${at.x},${at.y}) scale(${facing},1)`);
+      // The first frame's timestamp can predate t0, so clamp below as well.
+      const k = clamp((now - t0) / ms, 0, 1);
+      const s = Math.min(n - 1, Math.floor(k * n));
+      const f = k * n - s;
+      const a = seq[s];
+      const b = seq[s + 1];
+      const i = a.i + (b.i - a.i) * f + 0.5;
+      const j = a.j + (b.j - a.j) * f + 0.5;
+      const at = iso(i, j);
+      node.setAttribute('transform', `translate(${at.x},${at.y}) scale(${facing},1)`);
+      const dk = depthKey({ i, j, kind: 'walker' });
+      if (dk !== depth) { depth = dk; placeByDepth(objects, node, dk); }
       if (k < 1) requestAnimationFrame(step);
       else done();
     };
     requestAnimationFrame(step);
   };
-  run(false, () => {
-    walker.querySelector('.memo-sq').remove();
+  run(tiles, () => {
+    memo.remove();
     dropMemo(m.to, true);
-    run(true, () => {
-      walker.remove();
-      track.remove();
+    run([...tiles].reverse(), () => {
+      node.remove();
       walkers.delete(m.from);
       refresh();
       pump();
@@ -519,4 +783,7 @@ async function poll() {
   setTimeout(poll, 2000);
 }
 
-if (typeof document !== 'undefined') poll();
+if (typeof document !== 'undefined') {
+  wireView();
+  poll();
+}
