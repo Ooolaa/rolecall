@@ -33,6 +33,96 @@ export function deskState(name, tasks, messages, now) {
   return { state: 'idle', caption: 'Idle' };
 }
 
+// The 3D office. Rooms are the same tiles as before, drawn at T px per tile on an 840 x 600 floor.
+export const T = 35;
+export const OY = 20;
+export const FLOOR_PX = { w: 840, h: 600 };
+export const ROOM_TINTS = new Map([
+  ['Strategy', '--room-strategy'], ['Lead', '--room-lead'], ['Security', '--room-security'], ['Visitors', '--surface'],
+  ['Engineering', '--room-engineering'], ['Design', '--room-design'], ['Corridor', '--surface'],
+]);
+const roomBox = (name, [i0, j0, w, d], count) => ({ name, left: i0 * T, top: OY + j0 * T, width: w * T, height: d * T, count });
+
+// Desk slot n of a room: 2 x 1 tiles at (i0 + 1 + 4k, j0 + 2 + 3r); the figure stands behind it,
+// and "beside" is where a visiting sender stops, in front of the desk's right end.
+export function layout(members) {
+  const byRoom = new Map([...ROOM_TILES.keys()].map((r) => [r, []]));
+  for (const m of members) byRoom.get(department(m.agentType)).push(m);
+  const agents = new Map();
+  const rooms = [];
+  for (const [room, tiles] of ROOM_TILES) {
+    const [i0, j0, w] = tiles;
+    const cols = Math.floor((w - 3) / 4) + 1;
+    byRoom.get(room).forEach((m, n) => {
+      const di = i0 + 1 + 4 * (n % cols);
+      const dj = j0 + 2 + 3 * Math.floor(n / cols);
+      agents.set(m.name, {
+        name: m.name, agentType: m.agentType, color: COLOURS.get(m.color) ?? null, room,
+        desk: { left: di * T - 3, top: OY + dj * T - 2 },
+        home: { x: di * T + 35, y: OY + dj * T - 8 },
+        beside: { x: di * T + 92, y: OY + dj * T + 22 },
+      });
+    });
+    rooms.push(roomBox(room, tiles, byRoom.get(room).length));
+  }
+  rooms.push(roomBox('Corridor', CORRIDOR, 0));
+  return { rooms, agents };
+}
+
+// The camera: rotateZ (orbit), rotateX (tilt) and a zoom relative to the fitted size.
+export const HOME_CAM = { rz: -38, rx: 56, zoom: 0.9 };
+const clampN = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+export function clampCam(next, prev = HOME_CAM) {
+  if (![next.rz, next.rx, next.zoom].every(Number.isFinite)) return prev;
+  return { rz: clampN(next.rz, -80, -8), rx: clampN(next.rx, 38, 68), zoom: Math.round(clampN(next.zoom, 0.6, 1.3) * 100) / 100 };
+}
+
+// Everything that varies with the memo under the cursor. `now` decides who still reads Working.
+const clipText = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+export function stepState(lay, tasks, messages, k, now) {
+  const step = messages[k] ?? null;
+  const positions = new Map();
+  for (const [name, a] of lay.agents) positions.set(name, a.home);
+  const worn = new Map();
+  const sent = new Map();
+  const got = new Map();
+  for (let i = 0; i <= k && i < messages.length; i++) {
+    const m = messages[i];
+    sent.set(m.from, (sent.get(m.from) ?? 0) + 1);
+    got.set(m.to, (got.get(m.to) ?? 0) + 1);
+    if (lay.agents.has(m.from) && lay.agents.has(m.to)) {
+      const key = `${m.from}|${m.to}`;
+      worn.set(key, (worn.get(key) ?? 0) + 1);
+    }
+  }
+  let link = null;
+  if (step && lay.agents.has(step.from) && lay.agents.has(step.to)) {
+    const to = lay.agents.get(step.to);
+    positions.set(step.from, to.beside);
+    link = { x1: to.beside.x, y1: to.beside.y, x2: to.home.x, y2: to.home.y };
+  }
+  const at = Number.isFinite(now) ? now : -Infinity;
+  const upTo = messages.slice(0, k + 1);
+  const desks = new Map();
+  for (const name of lay.agents.keys()) {
+    desks.set(name, step && step.from === name ? { state: 'away', caption: 'Delivering memo' } : deskState(name, tasks, upTo, at));
+  }
+  return {
+    step, from: step?.from ?? null, to: step?.to ?? null, positions, link, worn, sent, got, desks,
+    say: step ? clipText(step.text || step.summary || '(no text)', 160) : '',
+    when: step ? hhmm(step.ts) : '',
+  };
+}
+
+// After a ledger reset the cursor follows its memo by key, else clamps; -1 when nothing is left.
+const memoKey = (m) => JSON.stringify([m.from, m.to, m.ts, m.text]);
+export function recursor(prev, next, cursor) {
+  if (!next.length) return -1;
+  const want = prev[cursor] && memoKey(prev[cursor]);
+  const i = want ? next.findIndex((m) => memoKey(m) === want) : -1;
+  return i >= 0 ? i : Math.min(cursor, next.length - 1);
+}
+
 // Isometric office maths. The plan is a 24 x 16 grid of tiles (i, j); iso() projects a tile point at
 // height z to SVG user units (2:1 dimetric, 64 x 32 per tile). The view is the SVG viewBox.
 export const iso = (i, j, z = 0) => ({ x: (i - j) * 32, y: (i + j) * 16 - z });

@@ -487,6 +487,89 @@ test('page: the ledger appends new rows, and starts over when a late message lan
   assert.deepEqual(ledgerUpdate([one, two], [one]), { reset: true, fresh: [one] });
 });
 
+// The 3D office (docs/superpowers/specs/2026-11-13-team-office-3d-viewer-design.md).
+test('layout: rooms at 35 px per tile, desks and figure points per slot, visitors for odd types', async () => {
+  const { layout, T } = await import('./app.js');
+  const lay = layout([{ name: 'A', agentType: 'team-skeptic', color: 'pink' }, { name: 'B', agentType: 'team-planner', color: 'orange' }, { name: 'Z', agentType: 'odd', color: null }]);
+  assert.equal(T, 35);
+  assert.deepEqual(lay.rooms.find((r) => r.name === 'Strategy'), { name: 'Strategy', left: 0, top: 20, width: 245, height: 210, count: 2 });
+  assert.deepEqual(lay.agents.get('A').desk, { left: 32, top: 88 }); // di 1, dj 2
+  assert.deepEqual(lay.agents.get('A').home, { x: 70, y: 82 });
+  assert.deepEqual(lay.agents.get('A').beside, { x: 127, y: 112 });
+  assert.deepEqual(lay.agents.get('B').desk, { left: 172, top: 88 }); // di 5
+  assert.equal(lay.agents.get('Z').room, 'Visitors');
+  assert.equal(lay.agents.get('Z').color, null);
+  assert.equal(lay.agents.get('A').color, '#C2417A');
+});
+
+test('clampCam: ranges hold and non-finite input leaves the camera as it was', async () => {
+  const { clampCam, HOME_CAM } = await import('./app.js');
+  assert.deepEqual(clampCam({ rz: -200, rx: 0, zoom: 9 }), { rz: -80, rx: 38, zoom: 1.3 });
+  assert.deepEqual(clampCam({ rz: 5, rx: 90, zoom: 0.1 }), { rz: -8, rx: 68, zoom: 0.6 });
+  assert.deepEqual(clampCam({ rz: NaN, rx: 50, zoom: 1 }), HOME_CAM);
+  const prev = { rz: -30, rx: 50, zoom: 1 };
+  assert.equal(clampCam({ rz: -30, rx: Infinity, zoom: 1 }, prev), prev);
+  let cam = HOME_CAM;
+  for (let i = 0; i < 1000; i++) cam = clampCam({ rz: cam.rz + (i % 2 ? 1e9 : -1e9), rx: cam.rx - 1e6, zoom: cam.zoom * 7 }, cam);
+  assert.ok(cam.rz >= -80 && cam.rz <= -8 && cam.rx >= 38 && cam.rx <= 68 && cam.zoom >= 0.6 && cam.zoom <= 1.3);
+});
+
+test('stepState: sender beside the recipient, counts, desk states, bubble text', async () => {
+  const { layout, stepState } = await import('./app.js');
+  const lay = layout([{ name: 'A', agentType: 'team-skeptic', color: 'pink' }, { name: 'B', agentType: 'team-builder', color: 'cyan' }]);
+  const tasks = [{ id: '1', subject: 'Build: b', status: 'in_progress', owner: 'B', blockedBy: [] }, { id: '2', subject: 'Review: r', status: 'pending', owner: 'A', blockedBy: ['1'] }];
+  const msgs = [
+    { from: 'A', to: 'B', ts: '2026-11-11T10:00:00Z', text: 'hi', summary: 's1' },
+    { from: 'B', to: 'A', ts: '2026-11-11T10:01:00Z', text: '', summary: 'protocol' },
+    { from: 'A', to: 'B', ts: '2026-11-11T10:02:00Z', text: '', summary: '' },
+  ];
+  const s0 = stepState(lay, tasks, msgs, 0, Date.parse(msgs[0].ts));
+  const b = lay.agents.get('B');
+  assert.deepEqual(s0.positions.get('A'), b.beside);
+  assert.deepEqual(s0.positions.get('B'), b.home);
+  assert.deepEqual(s0.link, { x1: b.beside.x, y1: b.beside.y, x2: b.home.x, y2: b.home.y });
+  assert.deepEqual(s0.desks.get('A'), { state: 'away', caption: 'Delivering memo' });
+  assert.deepEqual(s0.desks.get('B'), { state: 'idle', caption: 'Idle' }); // B has sent nothing yet
+  assert.equal(s0.say, 'hi');
+  const s1 = stepState(lay, tasks, msgs, 1, Date.parse(msgs[1].ts));
+  assert.deepEqual(s1.desks.get('B'), { state: 'away', caption: 'Delivering memo' });
+  assert.deepEqual(stepState(lay, tasks, msgs, 2, Date.parse(msgs[2].ts)).desks.get('B'), { state: 'active', caption: 'Build: b' }); // sent 1 min ago
+  const s2 = stepState(lay, tasks, msgs, 2, Date.parse(msgs[2].ts));
+  assert.equal(s2.worn.get('A|B'), 2);
+  assert.equal(s2.worn.get('B|A'), 1);
+  assert.equal(s2.sent.get('A'), 2);
+  assert.equal(s2.got.get('A'), 1);
+  assert.equal(s2.say, '(no text)');
+  assert.equal(stepState(lay, tasks, msgs, 1, Date.parse(msgs[1].ts)).say, 'protocol');
+  const idle = stepState(lay, tasks, msgs, 1, Date.parse('2026-11-11T11:00:00Z'));
+  assert.deepEqual(idle.desks.get('A'), { state: 'blocked', caption: 'Blocked' });
+  const none = stepState(lay, tasks, [], 0, Date.now());
+  assert.equal(none.step, null);
+  assert.deepEqual(none.positions.get('A'), lay.agents.get('A').home);
+  assert.equal(none.say, '');
+});
+
+test('stepState: unknown names, bad timestamp', async () => {
+  const { layout, stepState } = await import('./app.js');
+  const lay = layout([{ name: 'A', agentType: 'team-skeptic', color: 'pink' }]);
+  const s = stepState(lay, [], [{ from: 'Ghost', to: 'A', ts: 'nope', text: 'x', summary: '' }], 0, NaN);
+  assert.equal(s.link, null);
+  assert.equal(s.worn.size, 0);
+  assert.deepEqual(s.positions.get('A'), lay.agents.get('A').home);
+  assert.deepEqual(s.desks.get('A'), { state: 'idle', caption: 'Idle' });
+  assert.equal(s.when, '');
+  assert.equal(s.sent.get('Ghost'), 1);
+});
+
+test('recursor: the cursor follows its memo through a ledger reset, else clamps', async () => {
+  const { recursor } = await import('./app.js');
+  const m = (ts) => ({ from: 'a', to: 'b', ts, text: ts });
+  const [one, two, three, late] = [m('1'), m('2'), m('3'), m('1.5')];
+  assert.equal(recursor([one, two, three], [one, late, two, three], 1), 2);
+  assert.equal(recursor([one, two, three], [one], 2), 0);
+  assert.equal(recursor([one, two, three], [], 2), -1);
+});
+
 // Spec change in task 10 (and its Amendment 1): a walk leg is timed by tiles on the route.
 test('page: a walk leg lasts 250 ms per tile, clamped to 0.6-1.8 s', async () => {
   const { walkMs } = await import('./app.js');
