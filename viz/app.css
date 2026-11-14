@@ -196,3 +196,6 @@ button { font: inherit; color: inherit; }
 .phase { height: 28px; line-height: 28px; padding: 0 12px; border-radius: 14px; background: var(--ink); color: var(--ground); font-size: 13px; font-weight: 600; white-space: nowrap; }
 .phase:empty { display: none; }
 .bar:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.memo.cur { background: var(--ground); border-left-color: var(--ink); }
+.memo.later { opacity: 0.45; }
+.scrub:disabled { opacity: 0.4; }

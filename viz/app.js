@@ -393,12 +393,10 @@ function renderLedger(messages) {
   const ledger = byId('ledger');
   const { reset, fresh } = ledgerUpdate(rendered, messages);
   if (reset) ledger.replaceChildren();
-  const atBottom = reset || ledger.scrollHeight - ledger.scrollTop - ledger.clientHeight < 40;
   const start = reset ? 0 : rendered.length;
   ledger.append(...fresh.map((m, i) => row(m, start + i)));
   rendered = messages;
   byId('empty').hidden = messages.length > 0;
-  if (atBottom) ledger.scrollTop = ledger.scrollHeight;
 }
 
 function row(m, index) {
@@ -410,8 +408,80 @@ function row(m, index) {
   time.setAttribute('datetime', m.ts);
   summary.append(time, el('span', 'route', `${m.from} → ${m.to}`), el('span', 'gist', m.summary || m.text.slice(0, 140) || '(no text)'));
   details.append(summary, el('p', 'body', m.text || '(no text)'));
+  // Opening a memo jumps the replay to it.
+  details.addEventListener('toggle', () => { if (details.open) goTo(index); });
   li.append(details);
   return li;
+}
+
+// ---- Replay -------------------------------------------------------------------------------------
+// The cursor follows the newest memo until you scrub back; then new memos only extend the range.
+
+let following = true;
+let playTimer = null;
+let prevMessages = [];
+let shown = null;
+
+function showStep() {
+  const msgs = snapshot.messages;
+  const n = msgs.length;
+  const m = msgs[cursor];
+  // Live, captions age with the clock; replayed, the team is shown as it stood at that memo.
+  applyStep(stepState(lay, snapshot.tasks, msgs, cursor, following ? Date.now() : Date.parse(m?.ts)));
+  const scrub = byId('scrub');
+  scrub.max = String(Math.max(0, n - 1));
+  scrub.value = String(Math.max(0, cursor));
+  scrub.disabled = n === 0;
+  scrub.setAttribute('aria-valuetext', m ? `Memo ${cursor + 1} of ${n}, ${hhmm(m.ts)}, ${m.from} → ${m.to}` : 'No memos');
+  byId('memo-label').textContent = `MEMO ${cursor + 1} / ${n}`;
+  const p = phaseOf(snapshot.tasks);
+  byId('phase').textContent = p < 0 ? 'Not started' : PHASES[p];
+  const rows = byId('ledger').children;
+  for (const li of rows) {
+    const i = Number(li.dataset.index);
+    li.classList.toggle('cur', i === cursor);
+    li.classList.toggle('later', i > cursor);
+  }
+  const key = m ? memoKey(m) : null;
+  if (key !== shown) {
+    rows[cursor]?.scrollIntoView({ block: 'nearest' });
+    shown = key;
+  }
+}
+
+function goTo(k) {
+  const n = snapshot ? snapshot.messages.length : 0;
+  if (!n) return;
+  cursor = Math.min(n - 1, Math.max(0, k));
+  following = cursor === n - 1;
+  showStep();
+}
+
+function setPlaying(on) {
+  clearInterval(playTimer);
+  playTimer = on ? setInterval(() => goTo(cursor + 1), 3000) : null;
+  const b = byId('play');
+  b.textContent = on ? '⏸' : '▶';
+  b.setAttribute('aria-label', on ? 'Pause replay' : 'Play replay');
+}
+
+function wireBar() {
+  byId('prev').addEventListener('click', () => goTo(cursor - 1));
+  byId('next').addEventListener('click', () => goTo(cursor + 1));
+  byId('play').addEventListener('click', () => setPlaying(!playTimer));
+  byId('scrub').addEventListener('input', (e) => goTo(Number(e.target.value)));
+  // Arrow keys step and Space plays, from the office or the bar. The slider and buttons keep their own keys.
+  for (const id of ['stage', 'bar']) {
+    byId(id).addEventListener('keydown', (e) => {
+      if (e.target.closest('input, button')) return;
+      if (e.key === 'ArrowLeft') goTo(cursor - 1);
+      else if (e.key === 'ArrowRight') goTo(cursor + 1);
+      else if (e.key === ' ') setPlaying(!playTimer);
+      else return;
+      e.preventDefault();
+    });
+  }
+  setPlaying(false);
 }
 
 // ---- Render -------------------------------------------------------------------------------------
@@ -429,8 +499,11 @@ function render(next) {
     byId('tb-project').textContent = `${project} · ${snapshot.team} · ${snapshot.members.length} agents · ${ROOM_TILES.size} rooms`;
   }
   renderLedger(snapshot.messages);
-  cursor = snapshot.messages.length - 1;
-  applyStep(stepState(lay, snapshot.tasks, snapshot.messages, cursor, Date.now()));
+  const msgs = snapshot.messages;
+  cursor = following ? msgs.length - 1 : recursor(prevMessages, msgs, cursor);
+  following = cursor === msgs.length - 1;
+  prevMessages = msgs;
+  showStep();
 }
 
 async function poll() {
@@ -448,5 +521,6 @@ async function poll() {
 
 if (typeof document !== 'undefined') {
   wireCamera();
+  wireBar();
   poll();
 }
