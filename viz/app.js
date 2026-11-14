@@ -93,6 +93,13 @@ export function clampCam(next, prev = HOME_CAM) {
   return { rz: clampN(next.rz, -80, -8), rx: clampN(next.rx, 38, 68), zoom: Math.round(clampN(next.zoom, 0.6, 1.3) * 100) / 100 };
 }
 
+// Wheel zoom by distance, capped per event: a mouse notch (~100) is 0.2, a trackpad tick a little.
+export function wheelZoom(cam, deltaY) {
+  if (Number.isNaN(deltaY)) return cam;
+  const d = Number.isFinite(deltaY) ? clampN(deltaY, -100, 100) : Math.sign(deltaY) * 100;
+  return clampCam({ rz: cam.rz, rx: cam.rx, zoom: cam.zoom - d * 0.002 }, cam);
+}
+
 // Everything that varies with the memo under the cursor. `now` decides who still reads Working.
 const clipText = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 export function stepState(lay, tasks, messages, k, now) {
@@ -117,7 +124,8 @@ export function stepState(lay, tasks, messages, k, now) {
     positions.set(step.from, to.beside);
     link = { x1: to.beside.x, y1: to.beside.y, x2: to.home.x, y2: to.home.y };
   }
-  const at = Number.isFinite(now) ? now : -Infinity;
+  // An unknown time makes every "within 2 minutes" check false, so nobody reads Working.
+  const at = Number.isFinite(now) ? now : NaN;
   const upTo = messages.slice(0, k + 1);
   const desks = new Map();
   for (const name of lay.agents.keys()) {
@@ -370,7 +378,7 @@ function wireCamera() {
   stage.addEventListener('pointercancel', endPress);
   stage.addEventListener('wheel', (e) => {
     e.preventDefault();
-    setCam({ rz: cam.rz, rx: cam.rx, zoom: cam.zoom - Math.sign(e.deltaY) * 0.1 });
+    setCam(wheelZoom(cam, e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY));
   }, { passive: false });
   stage.addEventListener('keydown', (e) => {
     if (e.key === '+' || e.key === '=') setCam({ rz: cam.rz, rx: cam.rx, zoom: cam.zoom + 0.1 });
@@ -394,7 +402,10 @@ let rendered = [];
 function renderLedger(messages) {
   const ledger = byId('ledger');
   const { reset, fresh } = ledgerUpdate(rendered, messages);
-  if (reset) ledger.replaceChildren();
+  if (reset) {
+    ledger.replaceChildren();
+    shown = null; // the rebuilt list starts at the top, so scroll back to the current row
+  }
   const start = reset ? 0 : rendered.length;
   ledger.append(...fresh.map((m, i) => row(m, start + i)));
   rendered = messages;
@@ -447,8 +458,13 @@ function showStep() {
     li.classList.toggle('later', i > cursor);
   }
   const key = m ? memoKey(m) : null;
-  if (key !== shown) {
-    rows[cursor]?.scrollIntoView({ block: 'nearest' });
+  // Scroll the Post room itself (never the page) to keep the current row in view.
+  const r = rows[cursor];
+  if (r && key !== shown) {
+    const L = byId('ledger');
+    if (r.offsetTop < L.scrollTop || r.offsetTop + r.offsetHeight > L.scrollTop + L.clientHeight) {
+      L.scrollTop = r.offsetTop - L.clientHeight / 2;
+    }
     shown = key;
   }
 }

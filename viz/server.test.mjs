@@ -561,6 +561,28 @@ test('stepState: unknown names, bad timestamp', async () => {
   assert.equal(s.sent.get('Ghost'), 1);
 });
 
+test('stepState: a bad timestamp after a good one leaves every earlier sender Idle', async () => {
+  const { layout, stepState } = await import('./app.js');
+  const lay = layout([{ name: 'L', agentType: 'team-lead', color: null }, { name: 'B', agentType: 'team-builder', color: 'cyan' }, { name: 'C', agentType: 'team-reviewer', color: 'red' }]);
+  const msgs = [{ from: 'B', to: 'L', ts: '2026-11-11T10:00:00Z', text: 'x', summary: '' }, { from: 'C', to: 'B', ts: 'garbage', text: 'y', summary: '' }];
+  const s = stepState(lay, [], msgs, 1, Date.parse(msgs[1].ts));
+  assert.deepEqual(s.desks.get('B'), { state: 'idle', caption: 'Idle' });
+});
+
+test('wheelZoom: zoom follows the wheel distance, so a trackpad flick is not end to end', async () => {
+  const { wheelZoom, HOME_CAM } = await import('./app.js');
+  assert.equal(wheelZoom(HOME_CAM, 4).zoom, 0.89);                    // one small trackpad event
+  assert.equal(wheelZoom(HOME_CAM, -100).zoom, 1.1);                  // one mouse notch
+  assert.equal(wheelZoom(HOME_CAM, 1e9).zoom, 0.7);                   // capped per event
+  assert.equal(wheelZoom(HOME_CAM, NaN), HOME_CAM);
+  assert.equal(wheelZoom(HOME_CAM, Infinity).zoom, 0.7);
+});
+
+test('office page: the Post room scrolls itself, never the window', async () => {
+  const js = await readFile(join(here, 'app.js'), 'utf8');
+  assert.ok(!js.includes('scrollIntoView'), 'scrollIntoView also scrolls the page');
+});
+
 test('recursor: the cursor follows its memo through a ledger reset, else clamps', async () => {
   const { recursor } = await import('./app.js');
   const m = (ts) => ({ from: 'a', to: 'b', ts, text: ts });
