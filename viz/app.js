@@ -277,6 +277,7 @@ function buildScene(lay) {
     const bmod = el('span', 'bmod');
     bubble.append(btext, bmod);
     fig.append(figureSvg(a.color), cap, tag, bubble);
+    fig.addEventListener('click', () => selectAgent(a.name));
     pt.append(el('div', 'shadow'), selring, hear, pulse, fig);
     figures.append(pt);
     figs.set(a.name, { pt, fig, tag, cap, bubble, btext, bmod, hear, pulse, selring, deskTop: top, memo, room: a.room });
@@ -427,7 +428,8 @@ function showStep() {
   const n = msgs.length;
   const m = msgs[cursor];
   // Live, captions age with the clock; replayed, the team is shown as it stood at that memo.
-  applyStep(stepState(lay, snapshot.tasks, msgs, cursor, following ? Date.now() : Date.parse(m?.ts)));
+  const s = stepState(lay, snapshot.tasks, msgs, cursor, following ? Date.now() : Date.parse(m?.ts));
+  applyStep(s);
   const scrub = byId('scrub');
   scrub.max = String(Math.max(0, n - 1));
   scrub.value = String(Math.max(0, cursor));
@@ -436,6 +438,7 @@ function showStep() {
   byId('memo-label').textContent = `MEMO ${cursor + 1} / ${n}`;
   const p = phaseOf(snapshot.tasks);
   byId('phase').textContent = p < 0 ? 'Not started' : PHASES[p];
+  renderCard(s);
   const rows = byId('ledger').children;
   for (const li of rows) {
     const i = Number(li.dataset.index);
@@ -484,6 +487,98 @@ function wireBar() {
   setPlaying(false);
 }
 
+// ---- Panel --------------------------------------------------------------------------------------
+
+let selected = null;
+let lastStep = null;
+const STATUS = new Map([['away', 'Delivering memo'], ['active', 'Working'], ['blocked', 'Blocked'], ['idle', 'Idle']]);
+
+function selectAgent(name) {
+  selected = name;
+  if (lastStep) renderCard(lastStep);
+}
+
+// Phase, task counts and git: the present, whatever memo is on show.
+function renderPanel() {
+  const project = snapshot.project ?? snapshot.team;
+  byId('panel-sub').textContent = `${project} · ${snapshot.team}`;
+  const cell = (label, ...nodes) => {
+    const d = el('div', 'tb-cell');
+    d.append(el('div', 'tb-k', label), ...nodes);
+    return d;
+  };
+  const phase = phaseOf(snapshot.tasks);
+  const ticks = el('div', 'ticks');
+  ticks.setAttribute('aria-hidden', 'true');
+  PHASES.forEach((_, i) => ticks.append(el('span', i < phase ? 'tick done' : i === phase ? 'tick cur' : 'tick')));
+  const count = (st) => snapshot.tasks.filter((t) => t.status === st).length;
+  const [done, doing, todo] = [count('completed'), count('in_progress'), count('pending')];
+  const bar = el('div', 'tbar');
+  bar.setAttribute('aria-hidden', 'true');
+  for (const [cls, n] of [['d', done], ['g', doing], ['t', todo]]) {
+    const seg = el('span', cls);
+    seg.style.setProperty('flex-grow', String(n));
+    bar.append(seg);
+  }
+  const g = snapshot.git;
+  byId('title-block').replaceChildren(
+    cell('PHASE', el('div', 'tb-v', phase < 0 ? 'Not started' : `${PHASES[phase]}, ${phase + 1} of ${PHASES.length}`), ticks),
+    cell('TASKS', el('div', 'tb-v', `${done} done · ${doing} in progress · ${todo} pending`), bar),
+    cell('GIT', el('div', 'tb-v', g ? g.branch : 'no git'),
+      el('div', 'tb-s', g ? `${g.commits} ${g.commits === 1 ? 'commit' : 'commits'}${g.insertions === null ? '' : ` · +${g.insertions} −${g.deletions}`}` : '')),
+  );
+  renderBoard();
+}
+
+// The task board: one node per task in rows of five, a line from each task to what blocks it.
+const BOARD = { cols: 5, pitch: 68, row: 52, w: 64, max: 15 };
+function renderBoard() {
+  const tasks = snapshot.tasks.slice(0, BOARD.max);
+  const at = new Map(tasks.map((t, i) => [t.id, { x: 8 + (i % BOARD.cols) * BOARD.pitch, y: 26 + Math.floor(i / BOARD.cols) * BOARD.row }]));
+  const box = el('div', 'board');
+  px(box, 'height', 26 + Math.ceil(tasks.length / BOARD.cols) * BOARD.row - 12);
+  for (const t of tasks) {
+    for (const b of t.blockedBy) {
+      const p = at.get(b);
+      const q = at.get(t.id);
+      if (p && q) box.append(strip('medge', p.x + BOARD.w / 2, p.y, q.x + BOARD.w / 2, q.y));
+    }
+  }
+  for (const t of tasks) {
+    const p = at.get(t.id);
+    const n = el('div', `mnode${t.status === 'completed' ? ' seen' : ''}${t.status === 'in_progress' ? ' doing' : ''}`, `${t.id} ${t.subject.split(':')[0].slice(0, 12)}`);
+    n.setAttribute('title', t.subject);
+    px(n, 'left', p.x);
+    px(n, 'top', p.y);
+    box.append(n);
+  }
+  const head = el('div', 'panel-row');
+  head.append(el('h3', '', 'Task board'), el('span', 'mono sub', snapshot.tasks.length > BOARD.max ? `+${snapshot.tasks.length - BOARD.max} more` : `${snapshot.tasks.length} tasks`));
+  const note = el('p', 'note', 'Dark tasks are done; a ring marks tasks in progress. A line joins a task to the one it waits on.');
+  byId('board').replaceChildren(head, ...(snapshot.tasks.length ? [box, note] : [el('p', 'note', 'No tasks yet')]));
+}
+
+// The selected agent: who they are, what they are doing at this memo, and their traffic so far.
+function renderCard(s) {
+  lastStep = s;
+  if (!lay.agents.has(selected)) selected = lay.agents.has('team-lead') ? 'team-lead' : lay.agents.keys().next().value ?? null;
+  for (const [name, f] of figs) f.selring.hidden = name !== selected;
+  const a = lay.agents.get(selected);
+  for (const z of byId('rooms').children) z.classList.toggle('sel', !!a && z.dataset.room === a.room);
+  if (!a) return byId('card').replaceChildren();
+  const ds = s.desks.get(selected);
+  const sw = el('span', 'swatch');
+  if (a.color) sw.style.setProperty('--agent', a.color);
+  const who = el('div', 'who');
+  who.append(el('div', 'who-n', a.name), el('div', 'who-r', `${a.room} · ${a.agentType}`));
+  const top = el('div', 'card-top');
+  top.append(sw, who, el('span', 'pill', STATUS.get(ds.state) ?? 'Idle'));
+  const task = snapshot.tasks.find((t) => t.owner === selected && t.status === 'in_progress');
+  byId('card').replaceChildren(top,
+    el('p', 'card-l', `Memos: ${s.sent.get(selected) ?? 0} sent, ${s.got.get(selected) ?? 0} received`),
+    el('p', 'card-l', `Task: ${task ? task.subject : 'none in progress'}`));
+}
+
 // ---- Render -------------------------------------------------------------------------------------
 
 function render(next) {
@@ -499,6 +594,7 @@ function render(next) {
     byId('tb-project').textContent = `${project} · ${snapshot.team} · ${snapshot.members.length} agents · ${ROOM_TILES.size} rooms`;
   }
   renderLedger(snapshot.messages);
+  renderPanel();
   const msgs = snapshot.messages;
   cursor = following ? msgs.length - 1 : recursor(prevMessages, msgs, cursor);
   following = cursor === msgs.length - 1;
