@@ -1,7 +1,8 @@
 :root {
   color-scheme: light dark;
-  --ground: #EDEFEA;
-  --surface: #F7F8F5;
+  --ground: #ECEEE9;
+  --surface: #FAFAF7;
+  --floor: #F7F8F5;
   --ink: #1C2321;
   --muted: #55605B;
   --rule: #C9CEC8;
@@ -12,15 +13,16 @@
   --room-security: #EDE6E5;
   --room-design: #E9E6EE;
   --tint: 18%;
-  --tint-idle: 8%;
   /* Three tones per box: the top in its own colour, the left side mixed this far into ink, the right side further. */
   --shade-l: 10%;
   --shade-r: 20%;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --ground: #151918;
     --surface: #1D2220;
+    --floor: #1A1F1D;
     --ink: #E3E7E2;
     --muted: #9BA59F;
     --rule: #333B38;
@@ -44,199 +46,153 @@ body {
   font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-variant-numeric: tabular-nums;
 }
-.vh {
-  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
-  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
-}
+button { font: inherit; color: inherit; }
 .muted { color: var(--muted); }
+.mono { font-family: var(--mono); }
+.sub { margin: 0; font-size: 12px; letter-spacing: 0.04em; color: var(--muted); text-transform: uppercase; }
 
-/* Sheet: plan, ledger, title block stacked; side by side from 1024px. */
-.sheet {
-  display: grid;
-  grid-template-areas: "plan" "post" "title";
-  gap: 24px;
-  padding: 16px;
-}
+/* Sheet: the office with its bar, and the panel. Side by side from 1024px, the panel 400px wide. */
+.sheet { display: grid; grid-template-areas: "office" "panel"; min-height: 100vh; }
 .sheet > * { min-width: 0; }
-.plan { grid-area: plan; }
-.post { grid-area: post; display: flex; flex-direction: column; }
-.title-block { grid-area: title; }
+.office { grid-area: office; display: flex; flex-direction: column; min-height: 640px; }
+.panel { grid-area: panel; background: var(--surface); border-top: 1px solid var(--rule); display: flex; flex-direction: column; }
 @media (min-width: 1024px) {
-  .sheet {
-    grid-template-columns: 64fr 36fr;
-    grid-template-rows: auto 1fr;
-    grid-template-areas: "plan post" "title post";
-  }
-  .post { position: sticky; top: 16px; height: calc(100vh - 32px); }
+  .sheet { grid-template-columns: 1fr 400px; grid-template-areas: "office panel"; height: 100vh; }
+  .office { min-height: 0; }
+  .panel { border-top: 0; border-left: 1px solid var(--rule); min-height: 0; }
 }
 
-/* Isometric office. Zoom and pan change only the viewBox; --z is the zoom, so text divided by it
-   keeps a steady on-screen size. */
-.plan { position: relative; }
-#plan { display: block; width: 100%; height: auto; touch-action: none; cursor: grab; }
-#plan.dragging { cursor: grabbing; }
-#plan:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-#plan text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-.zoom { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
-@media (max-width: 719px) { .zoom { position: static; justify-content: flex-end; margin-top: 8px; } }
-.zoom button {
-  min-width: 44px; min-height: 44px; padding: 0 10px;
-  background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: 2px;
-  font: inherit; font-weight: 600; cursor: pointer;
+/* Header */
+.head { min-height: 76px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.head h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+.head-ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hint { font-size: 13px; color: var(--muted); margin-right: 8px; }
+.ctl {
+  min-width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 10px; border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); background: var(--surface);
+  cursor: pointer; padding: 0 10px; font-size: 18px; line-height: 1;
 }
-.zoom button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.ctl.wide { font-size: 13px; font-weight: 600; padding: 0 14px; }
+.ctl:hover { background: color-mix(in srgb, var(--ink) 6%, var(--surface)); }
+.ctl.main { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+.ctl:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-.floor-strategy { --room: var(--room-strategy); }
-.floor-lead { --room: var(--room-lead); }
-.floor-security { --room: var(--room-security); }
-.floor-visitors { --room: var(--surface); }
-.floor-engineering { --room: var(--room-engineering); }
-.floor-design { --room: var(--room-design); }
-.floor-corridor { --room: var(--surface); }
-.tile { fill: var(--room); }
-.wall-l { fill: color-mix(in srgb, var(--ink) var(--shade-l), var(--ground)); }
-.wall-r { fill: color-mix(in srgb, var(--ink) var(--shade-r), var(--ground)); }
-.cap { fill: var(--ink); }
-.worn { fill: none; stroke: color-mix(in srgb, var(--ink) 15%, var(--ground)); stroke-linejoin: round; stroke-linecap: round; }
-.route { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
-.hatch-line { stroke: var(--ink); stroke-opacity: 0.25; stroke-width: 1.5; }
-.memo-sq { fill: var(--accent); }
-.memo-sq.gone { opacity: 0; }
-
-.desk { cursor: pointer; outline: none; }
-.desk .top { fill: color-mix(in srgb, var(--agent) var(--tint), var(--ground)); }
-.desk.idle .top { fill: color-mix(in srgb, var(--agent) var(--tint-idle), var(--ground)); }
-.desk .face-l { fill: color-mix(in srgb, var(--ink) var(--shade-l), color-mix(in srgb, var(--agent) 30%, var(--ground))); }
-.desk .face-r { fill: color-mix(in srgb, var(--ink) var(--shade-r), color-mix(in srgb, var(--agent) 30%, var(--ground))); }
-.desk:focus-visible .top, .desk.selected .top { stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; }
-.desk .key { fill: var(--ink); }
-.desk .mon { fill: var(--muted); }
-.desk .mon-l { fill: color-mix(in srgb, var(--ink) var(--shade-l), var(--muted)); }
-.desk .mon-r { fill: color-mix(in srgb, var(--ink) var(--shade-r), var(--muted)); }
-.desk .hatch { display: none; }
-.desk.blocked .hatch { display: inline; }
-.desk .pulse { fill: var(--agent); opacity: 0; }
-.desk .hand { fill: color-mix(in srgb, var(--agent) 70%, var(--ink)); opacity: 0; }
-.desk.typing .hand { opacity: 1; }
-
-/* People: viewer-facing, no face. Each limb pivots at its joint. */
-.seat, .walker { pointer-events: none; }
-.figure .torso, .figure .hand { fill: color-mix(in srgb, var(--agent) 70%, var(--ink)); }
-.figure .limb { fill: none; stroke: color-mix(in srgb, var(--agent) 70%, var(--ink)); stroke-width: 3.5; stroke-linecap: round; }
-.figure .leg { fill: none; stroke: color-mix(in srgb, var(--ink) 80%, var(--agent)); stroke-width: 4; stroke-linecap: round; }
-.figure .shoe, .figure .skull { fill: var(--ink); }
-.figure .upper { transform-origin: 0 -18px; }
-.figure .head { transform-origin: 0 -34px; }
-.figure .arm-l { transform-origin: -6px -32px; }
-.figure .arm-r { transform-origin: 6px -32px; }
-.figure .leg-l { transform-origin: -3px -18px; }
-.figure .leg-r { transform-origin: 3px -18px; }
-.figure.working .arm-l { transform: rotate(-20deg); }
-.figure.working .arm-r { transform: rotate(20deg); }
-.figure.idle .upper { transform: rotate(-8deg); }
-.figure.blocked .arm-l { transform: rotate(160deg) scale(0.6); }
-.figure.blocked .arm-r { transform: rotate(-160deg) scale(0.6); }
-.figure.blocked .head { transform: rotate(10deg); }
-.figure.away { opacity: 0; }
-
-/* Labels and desk tags: never coloured by agent or accent, with a ground halo. */
-.room-label, .tag text {
-  fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: var(--ground); stroke-linejoin: round;
+/* Stage and floor: a CSS-3D box you orbit. --bb is the inverse rotation, applied to every billboarded figure. */
+.stage {
+  position: relative; flex: 1 1 0; min-height: 360px; overflow: hidden; perspective: 2400px;
+  user-select: none; -webkit-user-select: none; touch-action: none; cursor: grab;
 }
-/* Room labels hold 14 px down to 0.5 px per unit, then shrink with the office so they never cover desks. */
-.room-label { font-size: calc(14px / max(var(--z, 1), 0.5)); font-weight: 600; stroke-width: calc(3px / max(var(--z, 1), 0.5)); }
-.tag text { font-size: calc(12px / var(--z, 1)); stroke-width: calc(3px / var(--z, 1)); }
-.tag .name { font-weight: 600; }
-.tag .caption { fill: var(--muted); }
-.tag.blocked .caption { fill: var(--ink); font-weight: 600; }
-#plan.far .tag { display: none; }
-#plan.far .tag.focus, #plan.far .tag.selected { display: inline; }
-
-/* Every keyframe and transition lives here, so reduced motion means nothing moves at all. */
-@media (prefers-reduced-motion: no-preference) {
-  .desk .top { transition: fill 200ms; }
-  .desk .pulse.on { animation: pulse 400ms ease-out; }
-  .memo-sq.dropped { transition: opacity 200ms; }
-  .figure .upper, .figure .head, .figure .arm-l, .figure .arm-r { transition: transform 200ms; }
-  .desk.typing .hand-l { animation: type 450ms steps(2, jump-none) infinite; }
-  .desk.typing .hand-r { animation: type 450ms steps(2, jump-none) -225ms infinite; }
-  .figure.walking .leg-l { animation: swing 600ms steps(2, jump-none) infinite; }
-  .figure.walking .leg-r { animation: swing 600ms steps(2, jump-none) -300ms infinite; }
-  .figure.walking .arm-l { animation: counter 600ms steps(2, jump-none) -300ms infinite; }
-  .figure.walking .arm-r { animation: counter 600ms steps(2, jump-none) infinite; }
+.stage.dragging { cursor: grabbing; }
+.stage:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.floor {
+  position: absolute; left: 50%; top: 55%; width: 840px; height: 600px; margin: -300px 0 0 -420px;
+  background: var(--floor); transform-style: preserve-3d; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 14%, transparent);
+  transition: transform 0.45s ease;
 }
-@keyframes pulse { 50% { opacity: 0.3; } }
-@keyframes type { from { transform: none; } to { transform: translateY(-1.5px); } }
-@keyframes swing { from { transform: rotate(-18deg); } to { transform: rotate(18deg); } }
-@keyframes counter { from { transform: rotate(10deg); } to { transform: rotate(-10deg); } }
-
-/* Post room */
-.post-head {
-  display: flex; justify-content: space-between; gap: 8px;
-  margin: 0; padding-bottom: 8px; border-bottom: 1px solid var(--ink);
-  font-weight: 600;
+.stage.dragging .floor { transition: none; }
+.slabF { position: absolute; left: 0; top: 600px; width: 840px; height: 14px; background: color-mix(in srgb, var(--ink) 30%, var(--ground)); transform-origin: 50% 0; transform: rotateX(-90deg); }
+.slabL { position: absolute; left: -14px; top: 0; width: 14px; height: 600px; background: color-mix(in srgb, var(--ink) 20%, var(--ground)); transform-origin: 100% 50%; transform: rotateY(-90deg); }
+.wallB {
+  position: absolute; left: 0; top: -64px; width: 840px; height: 64px; background: var(--surface);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent); transform-origin: 50% 100%; transform: rotateX(-90deg);
+  padding: 16px 24px; font-weight: 700; font-size: 26px; letter-spacing: 0.08em; color: var(--ink); white-space: nowrap; overflow: hidden;
 }
+.wallR { position: absolute; left: 840px; top: 0; width: 64px; height: 600px; background: var(--ground); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent); transform-origin: 0 50%; transform: rotateY(-90deg); }
+
+/* The layer boxes must pass 3D down, or desks and figures flatten into the floor. */
+#rooms, #worn, #desks, #link, #figures { position: absolute; inset: 0; transform-style: preserve-3d; }
+.zone { position: absolute; transform: translateZ(1px); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 10%, transparent); }
+.zone.sel { box-shadow: inset 0 0 0 2px var(--ink); }
+.zname { position: absolute; left: 14px; top: 10px; font-weight: 700; font-size: 18px; color: var(--ink); }
+.zsub { position: absolute; left: 14px; top: 34px; font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing: 0.06em; color: var(--muted); }
+
+/* Desks: six faces, the top lifted 24px; the monitor stands at the left end of the back edge. */
+.desk { position: absolute; width: 76px; height: 40px; transform-style: preserve-3d; --agent: var(--ink); }
+.desk .t { position: absolute; left: 0; top: 0; width: 76px; height: 40px; background: color-mix(in srgb, var(--agent) var(--tint), var(--ground)); transform: translateZ(24px); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent); }
+.desk .t.blocked { background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--ink) 28%, transparent) 0 1.5px, transparent 1.5px 6px); }
+.desk .f { position: absolute; left: 0; top: 16px; width: 76px; height: 24px; background: color-mix(in srgb, var(--ink) var(--shade-l), color-mix(in srgb, var(--agent) 30%, var(--ground))); transform-origin: 50% 100%; transform: rotateX(-90deg); }
+.desk .b { position: absolute; left: 0; top: -24px; width: 76px; height: 24px; background: color-mix(in srgb, var(--ink) var(--shade-r), color-mix(in srgb, var(--agent) 30%, var(--ground))); transform-origin: 50% 100%; transform: rotateX(-90deg); }
+.desk .l { position: absolute; left: 0; top: 0; width: 24px; height: 40px; background: color-mix(in srgb, var(--ink) var(--shade-l), color-mix(in srgb, var(--agent) 30%, var(--ground))); transform-origin: 0 50%; transform: rotateY(-90deg); }
+.desk .r { position: absolute; left: 76px; top: 0; width: 24px; height: 40px; background: color-mix(in srgb, var(--ink) var(--shade-r), color-mix(in srgb, var(--agent) 30%, var(--ground))); transform-origin: 0 50%; transform: rotateY(-90deg); }
+.desk .m { position: absolute; left: 4px; top: -6px; width: 22px; height: 16px; background: var(--muted); border-radius: 2px; transform-origin: 50% 100%; transform: translateZ(24px) rotateX(-90deg); }
+.desk .memo { position: absolute; left: 44px; top: 22px; width: 9px; height: 9px; background: var(--accent); transform: translateZ(25px); }
+.desk .memo[hidden] { display: none; }
+
+/* Paths on the floor: worn strips for past traffic, one dashed accent link for the memo under the cursor. */
+.worn { position: absolute; margin-top: -2px; border-radius: 3px; transform-origin: 0 50%; background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.link {
+  position: absolute; height: 4px; margin-top: -2px; transform-origin: 0 50%;
+  background-image: repeating-linear-gradient(90deg, var(--accent) 0, var(--accent) 10px, transparent 10px, transparent 18px);
+  background-size: 18px 4px; animation: flow 0.6s linear infinite;
+}
+
+/* Figures: a positioned point on the floor (1s move) holding a billboarded button (turns with the camera). */
+.pt { position: absolute; width: 0; height: 0; transform: translateZ(3px); transform-style: preserve-3d; transition: left 1s ease, top 1s ease; --agent: var(--ink); }
+.shadow { position: absolute; left: -17px; top: -10px; width: 34px; height: 20px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 20%, transparent); }
+.ring { position: absolute; box-sizing: border-box; border-radius: 50%; }
+.ring[hidden] { display: none; }
+.pulse { left: -28px; top: -28px; width: 56px; height: 56px; border: 3px solid var(--accent); animation: pulse 1.4s ease-out infinite; }
+.hear { left: -22px; top: -22px; width: 44px; height: 44px; border: 2px dashed var(--ink); }
+.selring { left: -26px; top: -26px; width: 52px; height: 52px; border: 2px solid var(--ink); }
+.bb { transform: var(--bb); transition: transform 0.45s ease; }
+.stage.dragging .bb { transition: none; }
+.fig { position: absolute; left: -28px; top: -72px; width: 56px; height: 72px; padding: 0; border: 0; background: none; cursor: pointer; transform-origin: 50% 100%; }
+.fig:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; border-radius: 8px; }
+/* The figure is the Claude Design agent image (docs/superpowers/specs/agent-images), drawn inline by app.js. */
+.fig .figimg { position: absolute; left: 0; top: 0; width: 56px; height: 72px; display: block; }
+.tag {
+  position: absolute; left: 50%; top: -14px; transform: translateX(-50%); height: 20px; line-height: 20px; padding: 0 7px; border-radius: 10px;
+  white-space: nowrap; font-size: 12px; font-weight: 600; background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 22%, transparent);
+}
+.tag.on { background: var(--ink); color: var(--ground); }
+.cap {
+  position: absolute; left: 50%; top: -30px; transform: translateX(-50%); height: 14px; line-height: 14px; padding: 0 5px; border-radius: 4px;
+  white-space: nowrap; font-family: var(--mono); font-size: 10px; font-weight: 500; background: var(--floor); color: var(--muted);
+}
+.cap.blocked { color: var(--ink); font-weight: 600; }
+.bubble {
+  position: absolute; left: 50%; bottom: 94px; transform: translateX(-50%); width: max-content; max-width: 230px; padding: 9px 11px; border-radius: 10px;
+  background: var(--ink); color: var(--ground); font-size: 14px; line-height: 1.35; font-weight: 500; text-align: left; white-space: normal;
+}
+.bubble[hidden] { display: none; }
+.bmod { display: block; margin-top: 6px; font-family: var(--mono); font-size: 12px; font-weight: 500; color: color-mix(in srgb, var(--ground) 80%, var(--ink)); }
+
+/* Bottom bar (filled by the scrubber) */
+.bar { min-height: 80px; padding: 0 16px; display: flex; align-items: center; gap: 16px; border-top: 1px solid var(--rule); }
+
+/* Panel */
+.panel-head { padding: 20px 24px 16px; border-bottom: 1px solid var(--rule); }
+.panel-head h2 { margin: 4px 0 0; font-size: 22px; font-weight: 700; line-height: 1.2; }
+.post { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; padding: 14px 24px 24px; }
+.post-head { display: flex; justify-content: space-between; gap: 8px; margin: 0; padding-bottom: 8px; font-weight: 700; font-size: 15px; }
 .post-head .muted { font-weight: 400; font-size: 12px; }
-#ledger {
-  list-style: none; margin: 0; padding: 0;
-  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  max-height: 60vh;
-}
+#ledger { list-style: none; margin: 0; padding: 0; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; max-height: 60vh; }
 @media (min-width: 1024px) { #ledger { max-height: none; } }
 .memo { border-bottom: 1px solid var(--rule); border-left: 3px solid transparent; }
-.memo.selected, .memo.flash { background: var(--surface); border-left-color: var(--accent); }
+.memo.selected, .memo.flash { background: var(--ground); border-left-color: var(--accent); }
 .memo summary {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-areas: "when route" "gist gist";
-  column-gap: 8px;
-  min-height: 44px;
-  padding: 12px 12px 12px 9px;
-  cursor: pointer;
-  list-style: none;
+  display: grid; grid-template-columns: auto 1fr; grid-template-areas: "when route" "gist gist"; column-gap: 8px;
+  min-height: 44px; padding: 12px 12px 12px 9px; cursor: pointer; list-style: none;
 }
 .memo summary::-webkit-details-marker { display: none; }
 .memo summary:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
 .when { grid-area: when; font-size: 12px; color: var(--muted); line-height: 21px; }
 .route { grid-area: route; font-weight: 600; overflow-wrap: anywhere; }
 .gist { grid-area: gist; overflow-wrap: anywhere; }
-.body {
-  margin: 0; padding: 0 12px 12px 9px;
-  white-space: pre-wrap; overflow-wrap: anywhere;
-}
+.body { margin: 0; padding: 0 12px 12px 9px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .empty { margin: 12px 0; }
 .empty[hidden] { display: none; }
 
-/* Title block */
-.title-block { width: min(360px, 100%); border: 1px solid var(--ink); }
-.title-block dl { margin: 0; }
-.title-block dl > div {
-  display: grid; grid-template-columns: 96px 1fr; gap: 12px;
-  padding: 8px 12px; border-top: 1px solid var(--rule);
+@keyframes pulse { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+@keyframes flow { 0% { background-position: 0 0; } 100% { background-position: 18px 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .pulse, .link { animation: none; }
+  .pt, .floor, .bb { transition: none; }
 }
-.title-block dl > div:first-child { border-top: 0; }
-.title-block dt { font-size: 12px; font-weight: 500; letter-spacing: 0.01em; color: var(--muted); line-height: 21px; }
-.title-block dd { margin: 0; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
-.title-block dd.none { font-weight: 400; color: var(--muted); }
-.branch {
-  display: block; max-width: 100%;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.git-stats { display: block; }
-.ticks { display: flex; gap: 4px; margin-top: 4px; }
-.tick { width: 8px; height: 8px; background: var(--rule); }
-.tick.done { background: var(--ink); }
-.tick.current { background: transparent; outline: 2px solid var(--ink); outline-offset: -2px; }
-.bar { display: flex; height: 8px; margin: 6px 0 4px; background: var(--rule); }
-.bar span { flex-grow: var(--n); flex-basis: 0; }
-.bar .done { background: var(--ink); }
-.bar .doing { background: color-mix(in srgb, var(--ink) 45%, transparent); }
-.bar .todo { background: var(--rule); }
-.counts { font-weight: 400; }
-/* From 1024px the title block is a full-width strip under the plan, its five cells side by side. */
-@media (min-width: 1024px) {
-  .title-block { width: auto; align-self: start; }
-  .title-block dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
-  .title-block dl > div { grid-template-columns: 1fr; gap: 2px; border-top: 0; border-left: 1px solid var(--rule); }
-  .title-block dl > div:first-child { border-left: 0; }
-}
+
+/* Scrubber */
+.bar-ctl { display: flex; align-items: center; gap: 8px; }
+.scrub { flex: 1 1 0; min-width: 80px; accent-color: var(--ink); height: 44px; margin: 0; }
+.phase { height: 28px; line-height: 28px; padding: 0 12px; border-radius: 14px; background: var(--ink); color: var(--ground); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.phase:empty { display: none; }
+.bar:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }

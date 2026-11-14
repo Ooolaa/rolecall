@@ -9,48 +9,62 @@
 </head>
 <body>
 <main class="sheet">
-  <h1 class="vh">Team office</h1>
+  <section class="office" aria-labelledby="h-office">
+    <header class="head">
+      <div class="head-text">
+        <h1 id="h-office">Team office</h1>
+        <p id="tb-project" class="mono sub"></p>
+      </div>
+      <div class="head-ctl">
+        <span class="hint">Drag the floor to orbit</span>
+        <button type="button" class="ctl" id="rot-l" aria-label="Rotate left">↶</button>
+        <button type="button" class="ctl" id="rot-r" aria-label="Rotate right">↷</button>
+        <button type="button" class="ctl" id="zoom-out" aria-label="Zoom out">−</button>
+        <button type="button" class="ctl" id="zoom-in" aria-label="Zoom in">+</button>
+        <button type="button" class="ctl wide" id="zoom-fit">Fit</button>
+      </div>
+    </header>
 
-  <section class="plan" aria-labelledby="h-plan">
-    <h2 id="h-plan" class="vh">Floor plan</h2>
-    <svg id="plan" viewBox="-544 -112 1344 784" role="group" aria-labelledby="h-plan" tabindex="0">
-      <defs>
-        <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <path class="hatch-line" d="M0,0 V6"/>
-        </pattern>
-      </defs>
-      <g id="tiles"></g>
-      <g id="worn" aria-hidden="true"></g>
-      <g id="route" aria-hidden="true"></g>
-      <g id="walls" aria-hidden="true"></g>
-      <g id="objects"></g>
-      <g id="labels" aria-hidden="true"></g>
-      <g id="tags" aria-hidden="true"></g>
-    </svg>
-    <div class="zoom">
-      <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
-      <button type="button" id="zoom-out" aria-label="Zoom out">&minus;</button>
-      <button type="button" id="zoom-fit">Fit</button>
+    <div id="stage" class="stage" tabindex="0" role="group" aria-label="Office, drag to orbit">
+      <div id="floor" class="floor">
+        <div class="slabF" aria-hidden="true"></div>
+        <div class="slabL" aria-hidden="true"></div>
+        <div class="wallB" aria-hidden="true"><span id="wall-text"></span></div>
+        <div class="wallR" aria-hidden="true"></div>
+        <div id="rooms" aria-hidden="true"></div>
+        <div id="worn" aria-hidden="true"></div>
+        <div id="desks" aria-hidden="true"></div>
+        <div id="link" aria-hidden="true"></div>
+        <div id="figures"></div>
+      </div>
+    </div>
+
+    <div id="bar" class="bar" tabindex="0" role="group" aria-label="Memo replay">
+      <div class="bar-ctl">
+        <button type="button" class="ctl" id="prev" aria-label="Previous memo">⏮</button>
+        <button type="button" class="ctl main" id="play" aria-label="Pause replay">⏸</button>
+        <button type="button" class="ctl" id="next" aria-label="Next memo">⏭</button>
+      </div>
+      <input type="range" id="scrub" class="scrub" min="0" max="0" value="0" step="1" aria-label="Memo">
+      <span id="memo-label" class="mono sub"></span>
+      <span id="phase" class="phase"></span>
     </div>
   </section>
 
-  <section class="post" aria-labelledby="h-post">
-    <h2 id="h-post" class="vh">Post room</h2>
-    <p class="post-head"><span>Post room</span> <span id="status" class="muted" role="status"></span></p>
-    <ol id="ledger" role="log" aria-live="polite"></ol>
-    <p id="empty" class="muted empty">No memos yet</p>
-  </section>
-
-  <section class="title-block" aria-labelledby="h-title">
-    <h2 id="h-title" class="vh">Title block</h2>
-    <dl>
-      <div><dt>Project</dt><dd id="tb-project"></dd></div>
-      <div><dt>Git</dt><dd id="tb-git"></dd></div>
-      <div><dt>Phase</dt><dd id="tb-phase"></dd></div>
-      <div><dt>Tasks</dt><dd id="tb-tasks"></dd></div>
-      <div><dt>Last activity</dt><dd id="tb-last"></dd></div>
-    </dl>
-  </section>
+  <aside class="panel" aria-labelledby="h-panel">
+    <div class="panel-head">
+      <p id="panel-sub" class="mono sub"></p>
+      <h2 id="h-panel">Team office</h2>
+    </div>
+    <div id="title-block" class="tb"></div>
+    <div id="board" class="board-wrap"></div>
+    <div id="card" class="card"></div>
+    <section class="post" aria-labelledby="h-post">
+      <p class="post-head"><span id="h-post">Post room</span> <span id="status" class="muted" role="status"></span></p>
+      <ol id="ledger" role="log" aria-live="polite"></ol>
+      <p id="empty" class="muted empty">No memos yet</p>
+    </section>
+  </aside>
 </main>
 </body>
 </html>

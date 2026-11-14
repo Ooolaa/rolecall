@@ -1,0 +1,99 @@
+{
+  "size": {
+    "width": 56,
+    "height": 72,
+    "anchor": "bottom-center",
+    "pngScale": 4
+  },
+  "ink": "#1C2126",
+  "agents": [
+    {
+      "id": "Skeptic-2",
+      "type": "team-skeptic",
+      "room": "Strategy",
+      "color": "#C2417A",
+      "svg": "svg/skeptic-2.svg",
+      "png": "png/skeptic-2.png"
+    },
+    {
+      "id": "Planner-2",
+      "type": "team-planner",
+      "room": "Strategy",
+      "color": "#D9661F",
+      "svg": "svg/planner-2.svg",
+      "png": "png/planner-2.png"
+    },
+    {
+      "id": "team-lead",
+      "type": "team-lead",
+      "room": "Lead",
+      "color": "#1C2321",
+      "svg": "svg/team-lead.svg",
+      "png": "png/team-lead.png"
+    },
+    {
+      "id": "Threat-Modeler",
+      "type": "team-threat-modeler",
+      "room": "Security",
+      "color": "#2E8B57",
+      "svg": "svg/threat-modeler.svg",
+      "png": "png/threat-modeler.png"
+    },
+    {
+      "id": "Security-Reviewer-2",
+      "type": "team-security-reviewer",
+      "room": "Security",
+      "color": "#C2417A",
+      "svg": "svg/security-reviewer-2.svg",
+      "png": "png/security-reviewer-2.png"
+    },
+    {
+      "id": "Builder-2",
+      "type": "team-builder",
+      "room": "Engineering",
+      "color": "#0E8A9E",
+      "svg": "svg/builder-2.svg",
+      "png": "png/builder-2.png"
+    },
+    {
+      "id": "Gatekeeper-2",
+      "type": "team-gatekeeper",
+      "room": "Engineering",
+      "color": "#C93A3A",
+      "svg": "svg/gatekeeper-2.svg",
+      "png": "png/gatekeeper-2.png"
+    },
+    {
+      "id": "Reviewer",
+      "type": "team-reviewer",
+      "room": "Engineering",
+      "color": "#0E8A9E",
+      "svg": "svg/reviewer.svg",
+      "png": "png/reviewer.png"
+    },
+    {
+      "id": "Design-Lead",
+      "type": "team-design-lead",
+      "room": "Design",
+      "color": "#B58900",
+      "svg": "svg/design-lead.svg",
+      "png": "png/design-lead.png"
+    },
+    {
+      "id": "Art-Director",
+      "type": "team-art-director",
+      "room": "Design",
+      "color": "#7B4FD6",
+      "svg": "svg/art-director.svg",
+      "png": "png/art-director.png"
+    },
+    {
+      "id": "Design-Critic",
+      "type": "team-design-critic",
+      "room": "Design",
+      "color": "#2F6FDB",
+      "svg": "svg/design-critic.svg",
+      "png": "png/design-critic.png"
+    }
+  ]
+}
