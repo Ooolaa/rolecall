@@ -140,6 +140,7 @@ button { font: inherit; color: inherit; }
 .fig:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; border-radius: 8px; }
 /* The figure is the Claude Design agent image (docs/superpowers/specs/agent-images), drawn inline by app.js. */
 .fig .figimg { position: absolute; left: 0; top: 0; width: 56px; height: 72px; display: block; }
+.fig .figimg.lead path { fill: var(--ink); }
 .tag {
   position: absolute; left: 50%; top: -14px; transform: translateX(-50%); height: 20px; line-height: 20px; padding: 0 7px; border-radius: 10px;
   white-space: nowrap; font-size: 12px; font-weight: 600; background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 22%, transparent);

@@ -116,16 +116,18 @@ In the agent panel below the prompt, use ↑/↓ to select an agent and Enter to
 
 ### Watch the team
 
-To see the team at work in an isometric office, run this from the Rolecall folder while a team is running:
+To see the team at work in a 3D office, run this from the Rolecall folder while a team is running:
 
 ```bash
 node viz/server.mjs            # the newest team in ~/.claude/teams/
 node viz/server.mjs <team>     # or a team by name
 ```
 
-Open the address it prints (`http://127.0.0.1:4747`; set `PORT` to change it). Each Teammate sits at a desk that shows its state and walks a memo over to whoever it messages (with reduced motion on, the memo appears on the desk instead). The Post room lists the messages between current Teammates and the lead (messages to `main` show as `team-lead`), and the title block shows the task counts and the project's git activity since the team started. The page refreshes every 2 seconds.
+Open the address it prints (`http://127.0.0.1:4747`; set `PORT` to change it). Each Teammate is a little figure at a desk in its department's room. For every memo, the sender walks to the recipient's desk with a speech bubble, the recipient gets a listening ring, and the paths people walk wear into the floor. With reduced motion on, nothing moves or pulses; the sender just appears at the other desk. The side panel shows the phase, the task counts, git activity since the team started, a task board with what blocks what, a card for the selected Teammate, and the Post room, which lists the messages between current Teammates and the lead (messages to `main` show as `team-lead`). The page refreshes every 2 seconds.
 
-To move around the office, scroll or pinch on a trackpad to zoom (0.5× to 3×), and drag to pan. On a touch screen, use the buttons to zoom. The **+**, **−** and **Fit** buttons do the same, and double-clicking the floor fits the whole office back in view. With the office focused, the keys are `+` and `-` to zoom, `0` to fit, and the arrow keys to pan. Tab moves between desks, and Enter or a click on a desk opens that Teammate's latest memo. Once you zoom out far enough that a drawing unit is under half a screen pixel, the desk name tags hide, except on the focused or selected desk.
+The bar under the office replays the session: drag the slider, step with the ◀ ▶ buttons or the arrow keys, or press play (or Space) to advance one memo every 3 seconds. Opening a memo in the Post room jumps to it. On the newest memo the view follows live; once you scrub back it stays put while new memos only extend the slider. Click a figure to see its card.
+
+To move around the office, drag the floor or use the rotate buttons to orbit, scroll or use **+** and **−** to zoom, and **Fit** to reset the view; the office always fits the window at Fit. With the office focused, `+` and `-` zoom and `0` fits.
 
 The viewer is read-only and serves only `127.0.0.1`. It reads the team's config, tasks and transcripts from `~/.claude/` (or `CLAUDE_CONFIG_DIR`), and runs `git log` and `git diff` in the lead's project folder. Only the messages between Teammates reach the page, never tool output or prompts. It needs Node 22.18 or later, and git 2.40 or later for the git row. It works with Claude Code teams only.
 

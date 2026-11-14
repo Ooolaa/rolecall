@@ -189,7 +189,8 @@ const LEAD_BODY = '#1C2321';
 function figureSvg(color) {
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', '0 0 56 72');
-  svg.setAttribute('class', 'figimg');
+  // The lead has no team colour: its body follows --ink, so it stays visible in dark mode.
+  svg.setAttribute('class', color ? 'figimg' : 'figimg lead');
   svg.setAttribute('aria-hidden', 'true');
   for (const s of figureShapes(color ?? LEAD_BODY)) {
     const n = document.createElementNS(NS, s.tag);

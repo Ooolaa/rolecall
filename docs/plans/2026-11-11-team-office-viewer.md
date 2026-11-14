@@ -300,6 +300,7 @@ There is no build step and no linter.
 - **Done when:** all four pass with no open findings.
 
 ### 10. Isometric office (scope add from the user, 2026-11-12; tasks 1-9 committed as d4159b8)
+- **Superseded by the 3D viewer (2026-11-13):** see `docs/superpowers/specs/2026-11-13-team-office-3d-viewer-design.md` and `docs/superpowers/plans/2026-11-13-team-office-3d-viewer.md`. Task 10 stays as the record of commit c53459d.
 - **Owner:** Builder-2. **Files:** `viz/app.js`, `viz/app.css`, `viz/index.html` and `viz/server.test.mjs` (tests only). `server.mjs` and its CSP are unchanged.
 - **What:** a 2.5D isometric office drawn as plain SVG from code replaces the flat plan. No libraries and no external assets. Scroll-wheel zoom and drag-to-pan.
   - Carried over: the Post room, the title strip, desk states, the memo cap of 3 and the sender queue, and reduced motion.
