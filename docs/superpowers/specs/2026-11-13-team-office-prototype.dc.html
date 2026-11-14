@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Team office 3D prototype</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+body{margin:0}
+a{color:#1C2126}a:hover{color:#000}
+button{font:inherit;color:inherit}
+.stage{position:relative;flex:1 1 0;min-height:0;overflow:hidden;perspective:2400px;user-select:none;-webkit-user-select:none;touch-action:none;cursor:grab}
+.floor{position:absolute;left:50%;top:55%;width:840px;height:600px;margin:-300px 0 0 -420px;background:#F7F8F5;transform-style:preserve-3d;box-shadow:inset 0 0 0 1px rgba(28,33,38,.14)}
+.slabF{position:absolute;left:0;top:600px;width:840px;height:14px;background:#BFC5BC;transform-origin:50% 0;transform:rotateX(-90deg)}
+.slabL{position:absolute;left:-14px;top:0;width:14px;height:600px;background:#D2D7CF;transform-origin:100% 50%;transform:rotateY(-90deg)}
+.wallB{position:absolute;left:0;top:-64px;width:840px;height:64px;background:#FFFFFF;box-shadow:inset 0 0 0 1px rgba(28,33,38,.16);transform-origin:50% 100%;transform:rotateX(-90deg);box-sizing:border-box;padding:16px 24px;font-family:'Space Grotesk',system-ui,sans-serif;font-weight:700;font-size:26px;letter-spacing:.08em;color:#1C2126}
+.wallR{position:absolute;left:840px;top:0;width:64px;height:600px;background:#EDEFEA;box-shadow:inset 0 0 0 1px rgba(28,33,38,.16);transform-origin:0 50%;transform:rotateY(-90deg)}
+.zone{position:absolute;transform:translateZ(1px);transform-style:preserve-3d;box-sizing:border-box}
+.zname{position:absolute;left:14px;top:10px;font-family:'Space Grotesk',system-ui,sans-serif;font-weight:700;font-size:18px;color:#1C2126}
+.zsub{position:absolute;left:14px;top:34px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-weight:500;font-size:11px;letter-spacing:.06em;color:#454F57}
+.desk{position:absolute;width:76px;height:40px;transform-style:preserve-3d}
+.desk .t{position:absolute;left:0;top:0;width:76px;height:40px;background:#FFFFFF;transform:translateZ(24px);box-shadow:inset 0 0 0 1px rgba(28,33,38,.16)}
+.desk .t.blocked{background-image:repeating-linear-gradient(45deg,rgba(28,33,38,.28) 0 1.5px,transparent 1.5px 6px)}
+.desk .f{position:absolute;left:0;top:16px;width:76px;height:24px;background:#D5D9D2;transform-origin:50% 100%;transform:rotateX(-90deg)}
+.desk .b{position:absolute;left:0;top:-24px;width:76px;height:24px;background:#C3C8C0;transform-origin:50% 100%;transform:rotateX(-90deg)}
+.desk .l{position:absolute;left:0;top:0;width:24px;height:40px;background:#E4E7E1;transform-origin:0 50%;transform:rotateY(-90deg)}
+.desk .r{position:absolute;left:76px;top:0;width:24px;height:40px;background:#C9CEC6;transform-origin:0 50%;transform:rotateY(-90deg)}
+.desk .m{position:absolute;left:4px;top:-6px;width:22px;height:16px;background:#1C2126;border-radius:2px;transform-origin:50% 100%;transform:translateZ(24px) rotateX(-90deg)}
+.desk .memo{position:absolute;left:44px;top:22px;width:9px;height:9px;background:#E2401C;transform:translateZ(25px)}
+.link{position:absolute;height:4px;margin-top:-2px;transform-origin:0 50%;background-size:18px 4px;animation:flow .6s linear infinite}
+.worn{position:absolute;margin-top:-2px;border-radius:3px;transform-origin:0 50%;background:rgba(28,33,38,.14)}
+.pt{position:absolute;width:0;height:0;transform:translateZ(3px);transform-style:preserve-3d;transition:left 1s ease,top 1s ease}
+.shadow{position:absolute;left:-17px;top:-10px;width:34px;height:20px;border-radius:50%;background:rgba(28,33,38,.2)}
+.pulse{position:absolute;left:-28px;top:-28px;width:56px;height:56px;box-sizing:border-box;border-radius:50%;border:3px solid #E2401C;animation:pulse 1.4s ease-out infinite}
+.hear{position:absolute;left:-22px;top:-22px;width:44px;height:44px;box-sizing:border-box;border-radius:50%;border:2px dashed #1C2126}
+.selring{position:absolute;left:-26px;top:-26px;width:52px;height:52px;box-sizing:border-box;border-radius:50%;border:2px solid #1C2126}
+.fig{position:absolute;left:-28px;top:-72px;width:56px;height:72px;padding:0;border:0;background:none;cursor:pointer;transform-origin:50% 100%}
+.fig:focus-visible{outline:2px solid #1C2126;outline-offset:4px;border-radius:8px}
+.fig .head{position:absolute;left:16px;top:14px;width:24px;height:20px;box-sizing:border-box;border-radius:7px;background:#FFFFFF;border:2px solid #1C2126}
+.fig .eye{position:absolute;top:5px;width:4px;height:4px;border-radius:50%;background:#1C2126}
+.fig .ant{position:absolute;left:27px;top:8px;width:2px;height:6px;background:#1C2126}
+.fig .body{position:absolute;left:11px;top:36px;width:34px;height:34px;border-radius:11px 11px 7px 7px}
+.tag{position:absolute;left:50%;top:-14px;transform:translateX(-50%);height:20px;line-height:20px;padding:0 7px;border-radius:10px;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-size:12px;font-weight:600;background:#FFFFFF;color:#1C2126;box-shadow:0 0 0 1px rgba(28,33,38,.22)}
+.tag.on{background:#1C2126;color:#FFFFFF}
+.cap{position:absolute;left:50%;top:-30px;transform:translateX(-50%);height:14px;line-height:14px;padding:0 5px;border-radius:4px;white-space:nowrap;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;font-weight:500;background:#F7F8F5;color:#454F57}
+.cap.blocked{color:#1C2126;font-weight:600}
+.bubble{position:absolute;left:50%;bottom:94px;transform:translateX(-50%);width:max-content;max-width:230px;box-sizing:border-box;padding:9px 11px;border-radius:10px;background:#1C2126;color:#FFFFFF;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.35;font-weight:500;text-align:left;white-space:normal}
+.ctl{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid rgba(28,33,38,.2);background:#FFFFFF;cursor:pointer;padding:0}
+.ctl:hover{background:#F1F2EE}
+.ctl.main{background:#1C2126;border-color:#1C2126;color:#FFFFFF}
+.ctl.main:hover{background:#000}
+.dotb{width:26px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:0;padding:0;cursor:pointer}
+.dot{width:10px;height:10px;border-radius:50%;box-sizing:border-box;border:2px solid #7B858C;background:transparent}
+.dot.done{background:#7B858C}
+.dot.on{width:14px;height:14px;background:#1C2126;border-color:#1C2126}
+.msg{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:10px;background:#FFFFFF;box-shadow:inset 0 0 0 1px rgba(28,33,38,.12)}
+.msg.cur{box-shadow:inset 0 0 0 2px #1C2126}
+.bmod{display:block;margin-top:6px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;font-weight:500;color:#D5D9D2}
+.medge{position:absolute;height:1px;background:#A9B0AC;transform-origin:0 50%}
+.mnode{position:absolute;height:28px;margin-top:-14px;box-sizing:border-box;border-radius:8px;border:1.5px solid #7B858C;background:#FFFFFF;color:#454F57;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;font-weight:500;white-space:nowrap}
+.mnode.seen{background:#1C2126;border-color:#1C2126;color:#FFFFFF}
+.tb{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.tb .k{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.06em;color:#454F57}
+.tb .v{font-size:13px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+.ticks{display:flex;gap:4px;margin-top:5px}
+.tick{width:8px;height:8px;background:#D5D9D2}
+.tick.done{background:#1C2126}
+.tick.cur{background:transparent;box-shadow:inset 0 0 0 2px #1C2126}
+.bar{display:flex;height:8px;margin-top:5px;background:#D5D9D2}
+.bar .d{background:#1C2126}
+.bar .g{background:rgba(28,33,38,.45)}
+@keyframes pulse{0%{transform:scale(.5);opacity:1}100%{transform:scale(1.5);opacity:0}}
+@keyframes flow{0%{background-position:0 0}100%{background-position:18px 0}}
+@media (prefers-reduced-motion: reduce){.pulse,.link{animation:none}.pt{transition:none}}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; display: flex; background: #ECEEE9; color: #1C2126; font-family: 'Inter', system-ui, sans-serif; overflow: hidden">
+
+<div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column">
+
+<div style="height: 76px; box-sizing: border-box; padding: 0 28px; display: flex; align-items: center; justify-content: space-between; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h1 style="margin: 0; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: 24px; letter-spacing: -0.01em">Team office</h1>
+<div style="font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12px; color: #454F57; letter-spacing: 0.04em">TECHPULSE · SESSION-A15E8D75 · 11 AGENTS · 6 ROOMS</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="font-size: 13px; color: #454F57; margin-right: 8px">Drag the floor to orbit</span>
+<button class="ctl" onClick="{{rotL}}" aria-label="Rotate left">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg>
+</button>
+<button class="ctl" onClick="{{rotR}}" aria-label="Rotate right">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 4v5h-5"></path></svg>
+</button>
+<button class="ctl" onClick="{{zoomOut}}" aria-label="Zoom out">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"></path></svg>
+</button>
+<button class="ctl" onClick="{{zoomIn}}" aria-label="Zoom in">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+</button>
+<button class="ctl" onClick="{{resetView}}" aria-label="Fit the office" style="width: auto; padding: 0 14px; font-size: 13px; font-weight: 600">Fit</button>
+</div>
+</div>
+
+<div class="stage" onPointerDown="{{down}}" onPointerMove="{{move}}" onPointerUp="{{up}}" onPointerLeave="{{up}}">
+<div class="floor" style="transform: {{floorTf}}; transition: {{viewTrans}}">
+<div class="slabF"></div>
+<div class="slabL"></div>
+<div class="wallB">ROLECALL · TECHPULSE</div>
+<div class="wallR"></div>
+
+<sc-for list="{{rooms}}" as="d" hint-placeholder-count="7">
+<div class="zone" style="left: {{d.left}}; top: {{d.top}}; width: {{d.width}}; height: {{d.height}}; background: {{d.tint}}; box-shadow: {{d.ring}}">
+<div class="zname">{{d.name}}</div>
+<div class="zsub">{{d.sub}}</div>
+</div>
+</sc-for>
+
+<sc-for list="{{worn}}" as="w" hint-placeholder-count="0">
+<div class="worn" style="left: {{w.left}}; top: {{w.top}}; width: {{w.width}}; height: {{w.height}}; transform: {{w.tf}}"></div>
+</sc-for>
+
+<sc-for list="{{desks}}" as="k" hint-placeholder-count="11">
+<div class="desk" style="left: {{k.left}}; top: {{k.top}}"><div class="b"></div><div class="l"></div><div class="r"></div><div class="f"></div><div class="t {{k.cls}}" style="background-color: {{k.tint}}"></div><div class="m"></div><sc-if value="{{k.memo}}" hint-placeholder-val="{{false}}"><div class="memo"></div></sc-if></div>
+</sc-for>
+
+<sc-for list="{{links}}" as="ln" hint-placeholder-count="1">
+<div class="link" style="left: {{ln.left}}; top: {{ln.top}}; width: {{ln.width}}; transform: {{ln.tf}}; background-image: repeating-linear-gradient(90deg, {{accent}} 0, {{accent}} 10px, transparent 10px, transparent 18px)"></div>
+</sc-for>
+
+<sc-for list="{{agents}}" as="a" hint-placeholder-count="11">
+<div class="pt" style="left: {{a.left}}; top: {{a.top}}">
+<div class="shadow"></div>
+<sc-if value="{{a.selected}}" hint-placeholder-val="{{false}}"><div class="selring"></div></sc-if>
+<sc-if value="{{a.listening}}" hint-placeholder-val="{{false}}"><div class="hear"></div></sc-if>
+<sc-if value="{{a.speaking}}" hint-placeholder-val="{{false}}"><div class="pulse" style="border-color: {{accent}}"></div></sc-if>
+<button class="fig" style="transform: {{bb}}; transition: {{viewTrans}}" onClick="{{a.pick}}" aria-label="{{a.aria}}">
+<span class="ant"></span>
+<span class="head"><span class="eye" style="left: 4px"></span><span class="eye" style="right: 4px"></span></span>
+<span class="body" style="background: {{a.color}}"></span>
+<span class="cap {{a.capCls}}">{{a.caption}}</span>
+<span class="tag {{a.tagCls}}">{{a.name}}</span>
+<sc-if value="{{a.bubble}}" hint-placeholder-val="{{false}}"><span class="bubble">{{a.say}}<span class="bmod">{{a.when}} · to {{a.to}}</span></span></sc-if>
+</button>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="height: 80px; box-sizing: border-box; padding: 0 28px; display: flex; align-items: center; gap: 20px; border-top: 1px solid rgba(28,33,38,.12)">
+<div style="display: flex; align-items: center; gap: 8px">
+<button class="ctl" onClick="{{prev}}" aria-label="Previous memo">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5 9 12l10 7z"></path><path d="M5 5v14"></path></svg>
+</button>
+<sc-if value="{{playing}}" hint-placeholder-val="{{true}}">
+<button class="ctl main" onClick="{{toggle}}" aria-label="Pause replay">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M8 5v14"></path><path d="M16 5v14"></path></svg>
+</button>
+</sc-if>
+<sc-if value="{{paused}}" hint-placeholder-val="{{false}}">
+<button class="ctl main" onClick="{{toggle}}" aria-label="Play replay">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 5l12 7-12 7z"></path></svg>
+</button>
+</sc-if>
+<button class="ctl" onClick="{{next}}" aria-label="Next memo">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l10 7-10 7z"></path><path d="M19 5v14"></path></svg>
+</button>
+</div>
+<div style="display: flex; align-items: center">
+<sc-for list="{{dots}}" as="p" hint-placeholder-count="20">
+<button class="dotb" onClick="{{p.go}}" aria-label="{{p.aria}}"><span class="{{p.cls}}"></span></button>
+</sc-for>
+</div>
+<div style="margin-left: auto; display: flex; align-items: center; gap: 10px">
+<span style="font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12px; color: #454F57; letter-spacing: 0.04em">{{stepLabel}}</span>
+<span style="height: 28px; line-height: 28px; padding: 0 12px; border-radius: 14px; background: #1C2126; color: #FFFFFF; font-size: 13px; font-weight: 600">{{phase}}</span>
+</div>
+</div>
+</div>
+
+<aside style="width: 400px; box-sizing: border-box; background: #FAFAF7; border-left: 1px solid rgba(28,33,38,.14); display: flex; flex-direction: column">
+
+<div style="padding: 20px 24px 16px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid rgba(28,33,38,.12)">
+<div style="font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12px; color: #454F57; letter-spacing: 0.06em">REPLAY · 20 OF 357 MEMOS · 11–12 NOV</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: 22px; line-height: 1.2">Team office viewer</h2>
+</div>
+
+<div class="tb" style="padding: 14px 24px; border-bottom: 1px solid rgba(28,33,38,.12)">
+<div><div class="k">PHASE</div><div class="v">{{phaseLabel}}</div><div class="ticks"><sc-for list="{{ticks}}" as="t" hint-placeholder-count="6"><span class="{{t.cls}}"></span></sc-for></div></div>
+<div><div class="k">TASKS</div><div class="v">{{taskLabel}}</div><div class="bar"><span class="d" style="flex-grow: {{bar.done}}; flex-basis: 0"></span><span class="g" style="flex-grow: {{bar.doing}}; flex-basis: 0"></span><span style="flex-grow: {{bar.todo}}; flex-basis: 0"></span></div></div>
+<div><div class="k">GIT</div><div class="v">architecture-rethink</div><div style="font-size: 12px; color: #454F57">0 commits · +124 −0</div></div>
+</div>
+
+<div style="padding: 14px 24px 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid rgba(28,33,38,.12)">
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<h3 style="margin: 0; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: 15px">Task board</h3>
+<span style="font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12px; color: #454F57">{{lastLabel}}</span>
+</div>
+<div role="img" aria-label="{{mapAria}}" style="position: relative; width: 352px; height: 150px; border-radius: 10px; background: #FFFFFF; box-shadow: inset 0 0 0 1px rgba(28,33,38,.12)">
+<sc-for list="{{mapEdges}}" as="e" hint-placeholder-count="4">
+<div class="medge" style="left: {{e.left}}; top: {{e.top}}; width: {{e.width}}; transform: {{e.tf}}"></div>
+</sc-for>
+<sc-for list="{{mapNodes}}" as="n" hint-placeholder-count="7">
+<div class="mnode {{n.cls}}" style="left: {{n.left}}; top: {{n.top}}; width: {{n.width}}; box-shadow: {{n.glow}}">{{n.label}}</div>
+</sc-for>
+</div>
+<div style="font-size: 13px; line-height: 1.4"><span style="color: #454F57">Dark tasks are completed; the ring marks tasks in progress. A line means the right task waits on the left one.</span></div>
+</div>
+
+<div style="padding: 14px 24px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid rgba(28,33,38,.12)">
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 32px; height: 32px; border-radius: 9px; background: {{sel.color}}; flex: none"></div>
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: 16px">{{sel.name}}</div>
+<div style="font-size: 13px; color: #454F57">{{sel.room}} · {{sel.type}}</div>
+</div>
+<span style="margin-left: auto; flex: none; height: 26px; line-height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12px; font-weight: 600; box-shadow: inset 0 0 0 1px rgba(28,33,38,.3)">{{sel.status}}</span>
+</div>
+<div style="font-size: 13px; line-height: 1.4"><span style="color: #454F57">Memos: </span>{{sel.memos}} <span style="color: #454F57">· Task: </span>{{sel.task}}</div>
+</div>
+
+<div style="padding: 14px 24px 8px; display: flex; align-items: baseline; justify-content: space-between">
+<h3 style="margin: 0; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: 15px">Post room</h3>
+<span style="font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12px; color: #454F57">{{stepLabel}}</span>
+</div>
+<div style="flex: 1 1 0; min-height: 0; overflow: hidden; padding: 0 24px 24px; display: flex; flex-direction: column; justify-content: flex-end; gap: 10px">
+<sc-for list="{{msgs}}" as="m" hint-placeholder-count="3">
+<div class="msg {{m.cls}}">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px">
+<span style="font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; color: #454F57">{{m.when}}</span>
+<span style="width: 10px; height: 10px; border-radius: 3px; background: {{m.color}}; flex: none"></span>
+<span style="font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{m.who}} → {{m.to}}</span>
+</div>
+<div style="font-size: 14px; line-height: 1.45">{{m.text}}</div>
+</div>
+</sc-for>
+</div>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#E2401C","options":["#E2401C","#D9480F","#2A55C8","#0B6E6D","#1C2126"]},"speed":{"editor":"range","default":3.2,"min":1.5,"max":6,"step":0.1,"unit":"s"},"autoplay":{"editor":"boolean","default":true},"showBubbles":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+state = { step: 0, playing: true, rz: -38, rx: 56, zoom: 0.9, sel: 'team-lead', dragging: false };
+
+componentDidMount() {
+if (this.props.autoplay === false) this.setState({ playing: false });
+this.schedule();
+}
+
+componentWillUnmount() {
+clearTimeout(this.timer);
+}
+
+schedule() {
+clearTimeout(this.timer);
+var ms = Math.round((this.props.speed ?? 3.2) * 1000);
+this.timer = setTimeout(() => {
+if (this.state.playing) this.setState({ step: (this.state.step + 1) % this.steps().length });
+this.schedule();
+}, ms);
+}
+
+goTo(i) {
+var n = this.steps().length;
+this.setState({ step: ((i % n) + n) % n });
+this.schedule();
+}
+
+// The viewer's rooms, in tiles [i0, j0, w, d] on a 24 x 16 floor, and its fixed agent colours.
+rooms() {
+return [
+{ id: 'strategy', name: 'Strategy', i0: 0, j0: 0, w: 7, d: 6, tint: '#E3E8EE', agents: [
+{ id: 'Skeptic-2', type: 'team-skeptic', color: '#C2417A' },
+{ id: 'Planner-2', type: 'team-planner', color: '#D9661F' }] },
+{ id: 'lead', name: 'Lead', i0: 7, j0: 0, w: 5, d: 6, tint: '#E4E7E3', agents: [
+{ id: 'team-lead', type: 'team-lead', color: '#1C2321' }] },
+{ id: 'security', name: 'Security', i0: 12, j0: 0, w: 7, d: 6, tint: '#EDE6E5', agents: [
+{ id: 'Threat-Modeler', type: 'team-threat-modeler', color: '#2E8B57' },
+{ id: 'Security-Reviewer-2', type: 'team-security-reviewer', color: '#C2417A' }] },
+{ id: 'visitors', name: 'Visitors', i0: 19, j0: 0, w: 5, d: 6, tint: '#F7F8F5', agents: [] },
+{ id: 'corridor', name: '', i0: 0, j0: 6, w: 24, d: 2, tint: '#F7F8F5', agents: [] },
+{ id: 'engineering', name: 'Engineering', i0: 0, j0: 8, w: 12, d: 8, tint: '#E6EAE0', agents: [
+{ id: 'Builder-2', type: 'team-builder', color: '#0E8A9E' },
+{ id: 'Gatekeeper-2', type: 'team-gatekeeper', color: '#C93A3A' },
+{ id: 'Reviewer', type: 'team-reviewer', color: '#0E8A9E' }] },
+{ id: 'design', name: 'Design', i0: 12, j0: 8, w: 12, d: 8, tint: '#E9E6EE', agents: [
+{ id: 'Design-Lead', type: 'team-design-lead', color: '#B58900' },
+{ id: 'Art-Director', type: 'team-art-director', color: '#7B4FD6' },
+{ id: 'Design-Critic', type: 'team-design-critic', color: '#2F6FDB' }] }
+];
+}
+
+// The team's real task list, as /api/state returns it.
+tasks() {
+return [
+{ id: 1, label: '1 Discuss', subject: 'Discuss: brief, commands, abuse cases, visual direction', owner: null, blockedBy: [], x: 8, y: 40, w: 68 },
+{ id: 2, label: '2 Ask', subject: "Ask: lead brings Skeptic's open questions to the user", owner: null, blockedBy: [1], x: 84, y: 40, w: 52 },
+{ id: 3, label: '3 Plan', subject: 'Plan: Planner writes plan in docs/plans/', owner: 'Planner-2', blockedBy: [2], x: 144, y: 40, w: 56 },
+{ id: 4, label: '4 Build', subject: 'Build: Builder implements task by task', owner: 'Builder-2', blockedBy: [3], x: 208, y: 40, w: 60 },
+{ id: 5, label: '5 Review', subject: 'Review: Reviewer + Security-Reviewer review diff', owner: null, blockedBy: [4], x: 276, y: 40, w: 68 },
+{ id: 6, label: '6 Characters', subject: 'Characters: animated figures at desks + walking memos', owner: 'Builder-2', blockedBy: [], x: 80, y: 108, w: 96 },
+{ id: 7, label: '7 Isometric', subject: 'Isometric 2.5D office: zoom, pan, game-like, no libraries', owner: null, blockedBy: [], x: 192, y: 108, w: 96 }
+];
+}
+
+// Twenty real memos from the 357 in the session transcripts, with the task board as it stood.
+steps() {
+var A = { done: [], doing: [1] };
+var B = { done: [1], doing: [2] };
+var C = { done: [1, 2], doing: [3] };
+var D = { done: [1, 2, 3], doing: [4] };
+var E = { done: [1, 2, 3, 4], doing: [5] };
+var F = { done: [1, 2, 3, 4], doing: [5, 6] };
+var G = { done: [1, 2, 3, 4, 6], doing: [5, 7] };
+return [
+{ f: 'team-lead', t: ['Skeptic-2', 'Planner-2', 'Builder-2'], ph: 'Discuss', ts: '05:57', board: A, text: 'Roster correction: some names got a -2 suffix. Send messages only to these exact names.' },
+{ f: 'Builder-2', t: ['team-lead'], ph: 'Discuss', ts: '05:57', board: A, text: 'Builder ready, no code written. Facts for the plan: plain Node 24 ESM, zero deps, tests under node --test.' },
+{ f: 'Threat-Modeler', t: ['Security-Reviewer-2'], ph: 'Discuss', ts: '05:58', board: A, text: 'Merged abuse case list A1 to A10, provisional until the plan check. A1: bind to 127.0.0.1 only.' },
+{ f: 'Design-Lead', t: ['Planner-2'], ph: 'Discuss', ts: '05:59', board: A, text: 'Design spec for the office floor-plan viewer, agreed with Art-Director. Plain HTML, CSS and SVG, no libraries.' },
+{ f: 'team-lead', t: ['Planner-2'], ph: 'Ask', ts: '06:02', board: B, text: 'The user has answered, so write the plan now in docs/plans/.' },
+{ f: 'Planner-2', t: ['Skeptic-2'], ph: 'Plan', ts: '06:04', board: C, text: 'The plan is ready for your one challenge.' },
+{ f: 'Skeptic-2', t: ['Planner-2'], ph: 'Plan', ts: '06:05', board: C, text: 'One challenge: cut the fonts, cut the filter and the "N new" badge, and no double audit.' },
+{ f: 'Threat-Modeler', t: ['Planner-2'], ph: 'Plan', ts: '06:05', board: C, text: 'Plan check: A1 to A12 are mapped. Four gaps to close before I approve.' },
+{ f: 'team-lead', t: ['Builder-2'], ph: 'Build', ts: '06:09', board: D, text: 'The user approved the plan, so start building.' },
+{ f: 'Builder-2', t: ['Gatekeeper-2'], ph: 'Build', ts: '06:12', board: D, text: 'Task 2 is done. server.mjs exports readTeam and node --test passes 7 of 7.' },
+{ f: 'Gatekeeper-2', t: ['Builder-2'], ph: 'Build', ts: '06:14', board: D, text: 'Tasks 3 and 4 pass. The fast loop is 93 of 93 in 1.8 s. Go ahead with task 5.' },
+{ f: 'Builder-2', t: ['Design-Critic'], ph: 'Build', ts: '06:29', board: D, text: 'The page is ready for your single audit: live team on :4747, light and dark, 1440 and 375 px.' },
+{ f: 'Design-Critic', t: ['team-lead'], ph: 'Review', ts: '06:34', board: E, text: 'The task 7 audit is clean at 1440 and 375 px, light and dark.' },
+{ f: 'Reviewer', t: ['Builder-2'], ph: 'Review', ts: '06:35', board: E, text: 'Findings on viz/* against faf63a9: 29 pass, 1 todo, 0 fail. Two yellow findings to fix.' },
+{ f: 'team-lead', t: ['Art-Director', 'Builder-2'], ph: 'Review', ts: '07:10', board: F, text: 'New user request: characters working at the desks, not just blocks and lines.' },
+{ f: 'Design-Lead', t: ['Builder-2'], ph: 'Review', ts: '07:19', board: F, text: 'Side-view people spec, replacing the top-down figures: 64 tall standing, 52 seated, typing arms, walking legs.' },
+{ f: 'team-lead', t: ['Planner-2', 'Gatekeeper-2'], ph: 'Review', ts: '23:16', board: G, text: 'Resuming after the usage-limit pause. New scope: an isometric 2.5D office with zoom and pan, no libraries.' },
+{ f: 'Art-Director', t: ['Design-Lead'], ph: 'Review', ts: '23:17', board: G, text: 'Isometric direction for your single spec: 2:1 dimetric, 32-unit tiles, 64-high back walls, 8-unit stubs.' },
+{ f: 'Design-Lead', t: ['Builder-2', 'Planner-2', 'Gatekeeper-2'], ph: 'Review', ts: '23:20', board: G, text: 'Iso spec amendment 2, the last one: flat floors, no checker. Each room is one flat polygon.' },
+{ f: 'team-lead', t: ['Builder-2'], ph: 'Review', ts: '23:20', board: G, text: 'Tag halo: a stroke on the text, not a rect behind it.' }
+];
+}
+
+renderVals() {
+var s = this.state;
+var accent = this.props.accent ?? '#E2401C';
+var showBubbles = this.props.showBubbles ?? true;
+var PHASES = ['Discuss', 'Ask', 'Plan', 'Build', 'Review', 'Wrap up'];
+var T = 35;
+var OY = 20;
+var GROUND = '#EDEFEA';
+var rooms = this.rooms();
+var tasks = this.tasks();
+var steps = this.steps();
+var cur = steps[s.step];
+var board = cur.board;
+var isDone = (id) => board.done.indexOf(id) >= 0;
+var isDoing = (id) => board.doing.indexOf(id) >= 0;
+
+// Desk slots follow the viewer: 2 x 1 tiles at (i0 + 1 + 4k, j0 + 2 + 3r), the seat one tile behind.
+var all = [];
+var desks = [];
+var roomVals = rooms.map((r) => {
+var cols = Math.floor((r.w - 3) / 4) + 1;
+r.agents.forEach((a, n) => {
+var di = r.i0 + 1 + 4 * (n % cols);
+var dj = r.j0 + 2 + 3 * Math.floor(n / cols);
+all.push({ id: a.id, type: a.type, color: a.color, room: r.name, roomId: r.id,
+home: [di * T + 35, OY + dj * T - 8], beside: [di * T + 92, OY + dj * T + 22], desk: desks.length });
+desks.push({ left: (di * T - 3) + 'px', top: (OY + dj * T - 2) + 'px', tint: 'color-mix(in srgb, ' + a.color + ' 18%, ' + GROUND + ')', cls: '', memo: false });
+});
+return { id: r.id, name: r.name, sub: r.name ? r.agents.length + ' AGENTS' : '', left: (r.i0 * T) + 'px', top: (OY + r.j0 * T) + 'px',
+width: (r.w * T) + 'px', height: (r.d * T) + 'px', tint: r.tint, ring: 'inset 0 0 0 1px rgba(28,33,38,.1)' };
+});
+var byId = {};
+all.forEach((a) => { byId[a.id] = a; });
+var selAgent = byId[s.sel] || byId['team-lead'];
+roomVals.forEach((r) => { if (r.id === selAgent.roomId) r.ring = 'inset 0 0 0 2px #1C2126'; });
+
+// Desk state as the viewer derives it: blocked beats working beats idle; a sender is away delivering.
+var stateOf = (id) => {
+if (cur.f === id) return { state: 'away', caption: 'Delivering memo' };
+var open = tasks.filter((t) => t.owner === id && !isDone(t.id));
+if (open.some((t) => t.blockedBy.some((b) => !isDone(b)))) return { state: 'blocked', caption: 'Blocked' };
+var doing = open.find((t) => isDoing(t.id));
+var spoke = s.step > 0 && steps[s.step - 1].f === id;
+if (doing || spoke) return { state: 'working', caption: doing ? doing.subject : 'Working' };
+return { state: 'idle', caption: 'Idle' };
+};
+var clipText = (str, n) => (str.length > n ? str.slice(0, n - 1) + '…' : str);
+var sent = {};
+var got = {};
+var pairs = {};
+for (var j = 0; j <= s.step; j++) {
+var m = steps[j];
+sent[m.f] = (sent[m.f] || 0) + 1;
+m.t.forEach((to) => {
+got[to] = (got[to] || 0) + 1;
+var k = m.f + '|' + to;
+pairs[k] = (pairs[k] || 0) + 1;
+});
+}
+
+var first = byId[cur.t[0]];
+var pos = (id) => (cur.f === id && first ? first.beside : byId[id].home);
+var line = (p, q, extra) => {
+var dx = q[0] - p[0];
+var dy = q[1] - p[1];
+return { left: p[0] + 'px', top: p[1] + 'px', width: Math.round(Math.sqrt(dx * dx + dy * dy)) + 'px',
+tf: (extra || '') + 'rotate(' + (Math.atan2(dy, dx) * 180 / Math.PI).toFixed(2) + 'deg)' };
+};
+
+var agents = all.map((a) => {
+var p = pos(a.id);
+var st = stateOf(a.id);
+var speaking = cur.f === a.id;
+desks[a.desk].cls = st.state === 'blocked' ? 'blocked' : '';
+desks[a.desk].memo = cur.t.indexOf(a.id) >= 0;
+return {
+id: a.id, name: a.id, color: a.color,
+left: p[0] + 'px', top: p[1] + 'px',
+speaking: speaking,
+listening: cur.t.indexOf(a.id) >= 0,
+selected: s.sel === a.id,
+bubble: speaking && showBubbles,
+say: cur.text,
+when: cur.ts,
+to: cur.t.join(', '),
+caption: clipText(st.caption, 22),
+capCls: st.state,
+tagCls: speaking ? 'on' : '',
+aria: a.id + ', ' + a.room + ', ' + st.caption + ', ' + (sent[a.id] || 0) + ' memos',
+pick: () => this.setState({ sel: a.id })
+};
+});
+
+var from = pos(cur.f);
+var links = cur.t.map((id) => line(from, byId[id].home, 'translateZ(2px) '));
+var worn = Object.keys(pairs).map((k) => {
+var ids = k.split('|');
+var w = Math.min(8, 1 + 1.5 * Math.sqrt(pairs[k]));
+var l = line(byId[ids[0]].home, byId[ids[1]].beside, 'translateZ(1.5px) ');
+l.height = w.toFixed(1) + 'px';
+return l;
+});
+
+var msgs = steps.slice(0, s.step + 1).map((m, i) => ({
+when: m.ts, who: m.f, color: byId[m.f].color, to: m.t.join(', '),
+text: m.text, cls: i === s.step ? 'cur' : ''
+})).slice(-3);
+
+var centre = (t) => [t.x + t.w / 2, t.y];
+var mapEdges = [];
+tasks.forEach((t) => t.blockedBy.forEach((b) => {
+var p = centre(tasks[b - 1]);
+var q = centre(t);
+mapEdges.push(line([p[0] + tasks[b - 1].w / 2, p[1]], [q[0] - t.w / 2, q[1]]));
+}));
+var mapNodes = tasks.map((t) => ({
+label: t.label, left: t.x + 'px', top: t.y + 'px', width: t.w + 'px',
+cls: isDone(t.id) ? 'seen' : '',
+glow: isDoing(t.id) ? '0 0 0 3px #FFFFFF, 0 0 0 6px ' + accent : 'none'
+}));
+var nDone = board.done.length;
+var nDoing = board.doing.length;
+var nTodo = tasks.length - nDone - nDoing;
+var phaseIdx = PHASES.indexOf(cur.ph);
+var ticks = PHASES.map((p, i) => ({ cls: i < phaseIdx ? 'tick done' : i === phaseIdx ? 'tick cur' : 'tick' }));
+var selState = stateOf(selAgent.id);
+var selTask = tasks.find((t) => t.owner === selAgent.id && isDoing(t.id));
+
+var dots = steps.map((m, i) => ({
+cls: i === s.step ? 'dot on' : (i < s.step ? 'dot done' : 'dot'),
+aria: 'Go to memo ' + (i + 1) + ', ' + m.ts + ', ' + m.f + ' to ' + m.t.join(' and '),
+go: () => this.goTo(i)
+}));
+
+var clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+return {
+accent: accent,
+rooms: roomVals,
+desks: desks,
+agents: agents,
+links: links,
+worn: worn,
+msgs: msgs,
+dots: dots,
+phase: cur.ph,
+phaseLabel: cur.ph + ', ' + (phaseIdx + 1) + ' of ' + PHASES.length,
+ticks: ticks,
+taskLabel: nDone + ' done · ' + nDoing + ' in progress · ' + nTodo + ' pending',
+bar: { done: nDone, doing: nDoing, todo: nTodo },
+lastLabel: 'LAST MEMO ' + cur.ts,
+stepLabel: 'MEMO ' + (s.step + 1) + ' / ' + steps.length,
+playing: s.playing,
+paused: !s.playing,
+sel: { name: selAgent.id, type: selAgent.type, room: selAgent.room, color: selAgent.color,
+status: selState.caption === 'Delivering memo' ? 'Delivering memo' : selState.state.charAt(0).toUpperCase() + selState.state.slice(1),
+memos: (sent[selAgent.id] || 0) + ' sent, ' + (got[selAgent.id] || 0) + ' received',
+task: selTask ? selTask.subject : 'none in progress' },
+mapNodes: mapNodes,
+mapEdges: mapEdges,
+mapAria: 'Task board: ' + nDone + ' of ' + tasks.length + ' tasks done, ' + nDoing + ' in progress.',
+floorTf: 'scale(' + s.zoom + ') rotateX(' + s.rx + 'deg) rotateZ(' + s.rz + 'deg)',
+bb: 'rotateZ(' + (-s.rz) + 'deg) rotateX(' + (-s.rx) + 'deg)',
+viewTrans: s.dragging ? 'none' : 'transform .45s ease',
+toggle: () => this.setState({ playing: !s.playing }),
+next: () => this.goTo(s.step + 1),
+prev: () => this.goTo(s.step - 1),
+rotL: () => this.setState({ rz: clamp(s.rz + 14, -80, -8) }),
+rotR: () => this.setState({ rz: clamp(s.rz - 14, -80, -8) }),
+zoomIn: () => this.setState({ zoom: clamp(Math.round((s.zoom + 0.1) * 100) / 100, 0.6, 1.3) }),
+zoomOut: () => this.setState({ zoom: clamp(Math.round((s.zoom - 0.1) * 100) / 100, 0.6, 1.3) }),
+resetView: () => this.setState({ rz: -38, rx: 56, zoom: 0.9 }),
+down: (e) => {
+this.drag = { x: e.clientX, y: e.clientY, rz: s.rz, rx: s.rx, moved: false };
+},
+move: (e) => {
+var d = this.drag;
+if (!d) return;
+var dx = e.clientX - d.x;
+var dy = e.clientY - d.y;
+if (!d.moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+d.moved = true;
+this.setState({ dragging: true, rz: clamp(d.rz + dx * 0.3, -80, -8), rx: clamp(d.rx - dy * 0.25, 38, 68) });
+},
+up: () => {
+if (!this.drag) return;
+this.drag = null;
+if (this.state.dragging) this.setState({ dragging: false });
+}
+};
+}
+}
+</script>
+</body>
+</html>
