@@ -10,6 +10,7 @@ export default {
     { name: 'caveman:caveman', path: 'skills/caveman/SKILL.md' },
   ],
   edits: 'none',
+  codexAsk: 'Review this diff for bugs.',
   instructions: `Talk caveman: terse, no filler, all technical facts kept.
 
 Your job:

@@ -9,6 +9,7 @@ export default {
     { name: 'differential-review:differential-review', path: 'plugins/differential-review/skills/differential-review/SKILL.md' },
   ],
   edits: 'none',
+  codexAsk: 'Review this diff for exploitable security issues.',
   instructions: `You and the Threat Modeler are the Security group: a hard gate on the work. The Threat Modeler sends you the task's Abuse cases.
 
 Your job:

@@ -46,8 +46,15 @@ ${credit(role)}
 **Files you may edit:** ${EDITS[role.edits]}.
 
 ${role.instructions}
-`;
+${role.codexAsk ? codexSecondOpinion(role.codexAsk) : ''}`;
 }
+
+// Claude Code only: the other platforms run the team on Codex or Cursor already.
+const codexSecondOpinion = (ask) => `
+**Codex second opinion:** if \`command -v codex\` finds it, also run, read-only:
+\`codex exec --sandbox read-only "${ask} Run git diff <start> to see it. One line per finding: file:line: problem. fix."\`
+Weigh each Codex finding yourself: forward only ones you confirm in the code, tagged \`[codex]\`. Tell the lead the count (or \`skipped\` if codex is missing or errors). Never let Codex edit files.
+`;
 
 // Relayed mode (Codex, Cursor): Teammates report only to the lead, and skills are files under `upstreams`.
 function relayedInstructions(role, upstreams) {
