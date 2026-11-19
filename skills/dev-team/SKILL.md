@@ -28,6 +28,20 @@ For work with no UI at all, skip the three design Roles.
 
 Spawn every teammate while the session's working directory is the project root. Give each the user's task, the project path, the starting commit (`git rev-parse HEAD`, if it's a git repo), and the table above so they know who plays which Role.
 
+## Board
+
+The `rolecall-board` mod draws a side pane (`/rolecall` reopens it). Keep it current with its `rolecall_status` tool (`mcp__rolecall-board__rolecall_status`):
+
+- Right after spawning: `reset: true`, the `task` (short), `phase: 1`, every teammate as `idle` or `working`.
+- At every phase change: the new `phase`, plus who is now `working` / `done` / `blocked`, with a note of up to 30 characters.
+- When a gate moves: `gates`, e.g. `{"tests":"pass","security":"2 🔴 open","codex":"skipped"}`.
+
+If the tool isn't loaded, carry on without it and say so once.
+
+## Codex
+
+Reviewer and Security-Reviewer also get a read-only second opinion from the OpenAI Codex CLI when `codex` is on PATH (see their agent files). Claude Code stays the team; Codex only reviews. Show what Codex reported in the `codex` gate on the board, or `skipped` if it isn't installed.
+
 ## Flow
 
 Put these on the shared task list with dependencies:

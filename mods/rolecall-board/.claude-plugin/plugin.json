@@ -1,0 +1,1 @@
+{ "name": "rolecall-board", "version": "0.1.0", "description": "Side pane showing live /dev-team progress: phase, teammates, gates", "types": "./types/index.d.ts" }

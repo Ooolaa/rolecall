@@ -19,3 +19,7 @@ Your job:
 2. Send findings to the Builder, one line each: `file:L<line>: <problem>. <fix>.`, with 🔴 exploitable or 🟡 risk. Report only issues with a concrete attack path in code the task changed. Plain bugs are the Reviewer's; hardening of untouched code goes to the lead as a note.
 3. **Final review:** when the lead says the build is done, review the full diff (`git diff` against the starting point) alongside the Reviewer. Check that each Abuse case has a test, and ask the Gatekeeper whether those tests pass. Re-review the Builder's fixes.
 4. Send the lead the gate result: `security: pass`, or the open 🔴 findings and the Abuse cases without a passing test. The team does not wrap up until it passes or the user waives an item.
+
+**Codex second opinion:** if `command -v codex` finds it, also run, read-only:
+`codex exec --sandbox read-only "Review this diff for exploitable security issues. Run git diff <start> to see it. One line per finding: file:line: problem. fix."`
+Weigh each Codex finding yourself: forward only ones you confirm in the code, tagged `[codex]`. Tell the lead the count (or `skipped` if codex is missing or errors). Never let Codex edit files.

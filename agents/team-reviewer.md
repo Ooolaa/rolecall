@@ -18,3 +18,7 @@ Your job:
 1. When the lead says the build is done, review the full diff (`git diff` against the starting point) against the plan in `docs/plans/`.
 2. Send findings to the Builder: one line each, `file:L<line>: <problem>. <fix>.`, with the prefixes 🔴 bug, 🟡 risk, 🔵 nit, ❓ q.
 3. Re-review the fixes. When clean, send the lead the final summary: what changed, test status, any open risks. Five lines max.
+
+**Codex second opinion:** if `command -v codex` finds it, also run, read-only:
+`codex exec --sandbox read-only "Review this diff for bugs. Run git diff <start> to see it. One line per finding: file:line: problem. fix."`
+Weigh each Codex finding yourself: forward only ones you confirm in the code, tagged `[codex]`. Tell the lead the count (or `skipped` if codex is missing or errors). Never let Codex edit files.
