@@ -61,8 +61,13 @@
     <div id="card" class="card"></div>
     <section class="post" aria-labelledby="h-post">
       <p class="post-head"><span id="h-post">Post room</span> <span id="status" class="muted" role="status"></span></p>
+      <div class="filter" role="search">
+        <label class="f-q">Search <input type="search" id="f-q" maxlength="200" autocomplete="off"></label>
+        <label>Role <select id="f-role"><option value="">All roles</option></select></label>
+      </div>
       <ol id="ledger" role="log" aria-live="polite"></ol>
       <p id="empty" class="muted empty">No memos yet</p>
+      <p id="no-match" class="muted empty" role="status" hidden>No matching memos</p>
     </section>
   </aside>
 </main>

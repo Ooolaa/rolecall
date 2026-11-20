@@ -168,6 +168,29 @@ export function ledgerUpdate(prev, next) {
   return { reset: false, fresh: next.slice(n) };
 }
 
+// Post room search: which memos stay visible. q is a literal, case-blind substring (never a pattern);
+// a Role is agentType without team-, matched by sender or recipient. A Role nobody has means all.
+const roleOf = (agentType) => (agentType.startsWith('team-') ? agentType.slice(5) : agentType);
+export function filterRows(messages, members, { q, role }) {
+  const roles = new Map(members.map((m) => [m.name, roleOf(m.agentType)]));
+  const want = new Set([...roles.values()].filter(Boolean)).has(role) ? role : '';
+  const needle = q.toLowerCase();
+  return messages.map((m) => (!want || roles.get(m.from) === want || roles.get(m.to) === want)
+    && (!needle || [m.text, m.summary, m.from, m.to].some((v) => typeof v === 'string' && v.toLowerCase().includes(needle))));
+}
+
+// The filter lives in ?q=&role= so a view can be shared. First value wins; q is capped at 200.
+const Q_MAX = 200;
+export function parseFilter(search) {
+  const p = new URLSearchParams(search);
+  return { q: (p.get('q') ?? '').slice(0, Q_MAX), role: p.get('role') ?? '' };
+}
+export function filterQuery(search, { q, role }) {
+  const p = new URLSearchParams(search);
+  for (const [k, v] of [['q', q], ['role', role]]) v ? p.set(k, v) : p.delete(k);
+  return p.toString();
+}
+
 // ---------------------------------------------------------------------------------------------
 // DOM from here down. Nothing above touches the document.
 
@@ -410,6 +433,47 @@ function renderLedger(messages) {
   ledger.append(...fresh.map((m, i) => row(m, start + i)));
   rendered = messages;
   byId('empty').hidden = messages.length > 0;
+  applyFilter();
+}
+
+// ---- Search -------------------------------------------------------------------------------------
+// Hides rows, never removes them: the replay finds rows by position. ?q= and ?role= are untrusted
+// and only ever reach the page through .value; the URL is rewritten on edits, never on load.
+
+let filter = { q: '', role: '' };
+function applyFilter() {
+  const show = filterRows(rendered, snapshot.members, filter);
+  const rows = byId('ledger').children;
+  show.forEach((v, i) => { rows[i].hidden = !v; });
+  byId('no-match').hidden = !(show.length && !show.includes(true));
+}
+
+function renderRoles() {
+  const roles = [...new Set(snapshot.members.map((m) => roleOf(m.agentType)).filter(Boolean))].sort();
+  const sel = byId('f-role');
+  sel.replaceChildren(...['', ...roles].map((r) => {
+    const o = el('option', null, r || 'All roles');
+    o.value = r;
+    return o;
+  }));
+  sel.value = roles.includes(filter.role) ? filter.role : '';
+}
+
+function wireFilter() {
+  filter = parseFilter(location.search);
+  byId('f-q').value = filter.q;
+  const edit = (patch) => {
+    filter = { ...filter, ...patch };
+    if (snapshot) {
+      applyFilter();
+      shown = null; // hiding rows moves the cursor row, so let showStep re-check it is in view
+      showStep();
+    }
+    const s = filterQuery(location.search, filter);
+    history.replaceState(null, '', s ? `?${s}` : location.pathname);
+  };
+  byId('f-q').addEventListener('input', (e) => edit({ q: e.target.value.slice(0, Q_MAX) }));
+  byId('f-role').addEventListener('change', (e) => edit({ role: e.target.value }));
 }
 
 function row(m, index) {
@@ -459,8 +523,9 @@ function showStep() {
   }
   const key = m ? memoKey(m) : null;
   // Scroll the Post room itself (never the page) to keep the current row in view.
+  // A row hidden by the search has offsetTop 0, so it is left alone rather than jumping to the top.
   const r = rows[cursor];
-  if (r && key !== shown) {
+  if (r && !r.hidden && key !== shown) {
     const L = byId('ledger');
     if (r.offsetTop < L.scrollTop || r.offsetTop + r.offsetHeight > L.scrollTop + L.clientHeight) {
       L.scrollTop = r.offsetTop - L.clientHeight / 2;
@@ -607,6 +672,7 @@ function render(next) {
     lay = layout(snapshot.members);
     layKey = key;
     buildScene(lay);
+    renderRoles();
     byId('wall-text').textContent = `ROLECALL · ${project}`.toUpperCase();
     byId('tb-project').textContent = `${project} · ${snapshot.team} · ${snapshot.members.length} agents · ${ROOM_TILES.size} rooms`;
   }
@@ -635,5 +701,6 @@ async function poll() {
 if (typeof document !== 'undefined') {
   wireCamera();
   wireBar();
+  wireFilter();
   poll();
 }

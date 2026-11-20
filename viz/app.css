@@ -181,6 +181,13 @@ button { font: inherit; color: inherit; }
 .route { grid-area: route; font-weight: 600; overflow-wrap: anywhere; }
 .gist { grid-area: gist; overflow-wrap: anywhere; }
 .body { margin: 0; padding: 0 12px 12px 9px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 8px; }
+.filter label { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; color: var(--muted); }
+.filter .f-q { flex: 1 1 200px; }
+.filter input, .filter select { min-height: 44px; padding: 0 10px; font: inherit; font-size: 14px; background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: 0; }
+.filter input { flex: 1; min-width: 0; }
+.filter select { max-width: 180px; }
+.filter input:focus-visible, .filter select:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
 .empty { margin: 12px 0; }
 .empty[hidden] { display: none; }
 

@@ -321,6 +321,7 @@ test('A2: only a 127.0.0.1 or localhost Host header with our port is served', as
   const { server, port, get } = await serve(t);
   for (const Host of ['evil.example:' + port, `127.0.0.1:${port}.evil.example`, '127.0.0.1:1', 'localhost']) {
     assert.equal((await get('/api/state', { headers: { Host } })).status, 403, Host);
+    assert.equal((await get('/api/state?x=1', { headers: { Host } })).status, 403, `${Host} ?x=1`);
   }
   // Node itself answers a Host-less HTTP/1.1 request with 400 before our handler runs.
   assert.ok([400, 403].includes((await get('/api/state', { headers: {} })).status), 'no Host');
@@ -366,9 +367,30 @@ test('A5: the CLI refuses a team id that could leave teams/', async () => {
 
 test('A6: URL paths never reach the filesystem', async (t) => {
   const { server, get } = await serve(t);
-  for (const path of ['/../../etc/passwd', '/%2e%2e/%2e%2e/etc/passwd', '/..%2fpackage.json', '/server.mjs', '/server.test.mjs', '/index.html/', '//etc/passwd']) {
+  for (const path of ['/../../etc/passwd', '/%2e%2e/%2e%2e/etc/passwd', '/..%2fpackage.json', '/%2e%2e/server.mjs', '/server.mjs', '/server.test.mjs', '/index.html/', '//etc/passwd']) {
     assert.equal((await get(path)).status, 404, path);
+    assert.equal((await get(`${path}?q=1`)).status, 404, `${path}?q=1`);
   }
+  assert.equal((await get('/server.mjs?x=1')).status, 404);
+});
+
+test('a shared link with a query string serves the page unchanged, and assets and state ignore the query', async (t) => {
+  const { get } = await serve(t);
+  const plain = await get('/');
+  for (const path of ['/?q=x&role=skeptic', `/?q=${encodeURIComponent('<img src=x onerror=1>')}`]) {
+    const res = await get(path);
+    assert.equal(res.status, 200, path);
+    assert.match(res.headers['content-type'], /^text\/html/, path);
+    assert.equal(res.body, plain.body, path);
+    assert.equal(res.headers['content-security-policy'], CSP, path);
+    assert.equal(res.headers['x-content-type-options'], 'nosniff', path);
+  }
+  const js = await get('/app.js?v=1');
+  assert.equal(js.status, 200);
+  assert.match(js.headers['content-type'], /^text\/javascript/);
+  const state = await get('/api/state?q=1');
+  assert.equal(state.status, 200);
+  assert.equal(state.body, (await get('/api/state')).body);
 });
 
 test('A7: every response carries the CSP and nosniff', async (t) => {
@@ -382,7 +404,7 @@ test('A7: every response carries the CSP and nosniff', async (t) => {
 
 test('A7: app.js never writes HTML or inline styles, and sets only literal non-handler attributes', async () => {
   const src = await readFile(join(here, 'app.js'), 'utf8');
-  for (const bad of ['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write', ' style=', '.style.cssText', 'eval(', 'new Function']) {
+  for (const bad of ['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write', ' style=', '.style.cssText', 'eval(', 'new Function', 'RegExp(']) {
     assert.ok(!src.includes(bad), bad);
   }
   for (const [, arg] of src.matchAll(/setAttribute(?:NS)?\(\s*([^,)]*)/g)) {
@@ -485,6 +507,100 @@ test('page: the ledger appends new rows, and starts over when a late message lan
   assert.deepEqual(ledgerUpdate([one, two], [one, two]), { reset: false, fresh: [] });
   assert.deepEqual(ledgerUpdate([one, two], [one, late, two]), { reset: true, fresh: [one, late, two] });
   assert.deepEqual(ledgerUpdate([one, two], [one]), { reset: true, fresh: [one] });
+});
+
+// Post room search. Role = agentType without its team- prefix; a memo matches a Role by sender or recipient.
+const SEARCH_MEMBERS = [
+  { name: 'team-lead', agentType: 'team-lead' },
+  { name: 'Skeptic-2', agentType: 'team-skeptic' },
+  { name: 'Skeptic-3', agentType: 'team-skeptic' },
+  { name: 'Builder-2', agentType: 'team-builder' },
+];
+const SEARCH_MEMOS = [
+  { from: 'team-lead', to: 'Skeptic-2', ts: '1', text: 'Hello Skeptic', summary: 'kickoff' },
+  { from: 'Skeptic-2', to: 'team-lead', ts: '2', text: 'brief .* ready', summary: 'brief' },
+  { from: 'Builder-2', to: 'Skeptic-3', ts: '3', text: 'a[b(c\\d (a+)+$', summary: '' },
+  { from: 'Proto', to: 'team-lead', ts: '4', text: 'proto talk', summary: '' },
+  { from: 'ghost', to: 'nobody', ts: '5', text: '', summary: undefined },
+  { from: 'Builder-2', to: 'team-lead', ts: '6', text: `${'a'.repeat(50000)}!`, summary: '' },
+];
+const T_ = true;
+const F_ = false;
+
+test('filterRows: text is a case-insensitive substring of text, summary, from or to; Role matches sender or recipient; both AND', async () => {
+  const { filterRows } = await import('./app.js');
+  const f = (q, role) => filterRows(SEARCH_MEMOS, SEARCH_MEMBERS, { q, role });
+  assert.deepEqual(f('', ''), [T_, T_, T_, T_, T_, T_]);
+  assert.deepEqual(f('HELLO', ''), [T_, F_, F_, F_, F_, F_]);
+  assert.deepEqual(f('KICKOFF', ''), [T_, F_, F_, F_, F_, F_]);
+  assert.deepEqual(f('skeptic-2', ''), [T_, T_, F_, F_, F_, F_]);
+  assert.deepEqual(f('', 'skeptic'), [T_, T_, T_, F_, F_, F_]);
+  assert.deepEqual(f('', 'lead'), [T_, T_, F_, T_, F_, T_]);
+  assert.deepEqual(f('brief', 'lead'), [F_, T_, F_, F_, F_, F_]);
+  assert.deepEqual(f('brief', 'builder'), [F_, F_, F_, F_, F_, F_]);
+});
+
+test('AC2: filterRows matches q literally, never as a pattern', async () => {
+  const { filterRows } = await import('./app.js');
+  const f = (q) => filterRows(SEARCH_MEMOS, SEARCH_MEMBERS, { q, role: '' });
+  assert.deepEqual(f('.*'), [F_, T_, F_, F_, F_, F_]);
+  for (const q of ['[', '(', '\\', '(a+)+$']) assert.deepEqual(f(q), [F_, F_, T_, F_, F_, F_], q);
+});
+
+test('AC3: a 100,000-char q does not throw and matches nothing ordinary', async () => {
+  const { filterRows } = await import('./app.js');
+  assert.deepEqual(filterRows(SEARCH_MEMOS, SEARCH_MEMBERS, { q: 'x'.repeat(100000), role: '' }), [F_, F_, F_, F_, F_, F_]);
+});
+
+test('AC4/AC5: an unknown or prototype-named Role means all memos, and Object.prototype is untouched', async () => {
+  const { filterRows } = await import('./app.js');
+  const protoKeys = Object.getOwnPropertyNames(Object.prototype).sort();
+  const all = filterRows(SEARCH_MEMOS, SEARCH_MEMBERS, { q: '', role: '' });
+  for (const role of ['nope', '__proto__', 'constructor', 'toString', 'hasOwnProperty']) {
+    assert.deepEqual(filterRows(SEARCH_MEMOS, SEARCH_MEMBERS, { q: '', role }), all, role);
+  }
+  assert.deepEqual(filterRows(SEARCH_MEMOS, SEARCH_MEMBERS, { q: '__proto__', role: '' }), [F_, F_, F_, F_, F_, F_]);
+  assert.deepEqual(filterRows(SEARCH_MEMOS, SEARCH_MEMBERS, { q: 'constructor', role: '' }), [F_, F_, F_, F_, F_, F_]);
+  assert.equal(({}).polluted, undefined);
+  assert.deepEqual(Object.getOwnPropertyNames(Object.prototype).sort(), protoKeys);
+});
+
+test('AC6: a member whose agentType is __proto__ has that Role and matches its own memos', async () => {
+  const { filterRows } = await import('./app.js');
+  const members = [...SEARCH_MEMBERS, { name: 'Proto', agentType: '__proto__' }];
+  assert.deepEqual(filterRows(SEARCH_MEMOS, members, { q: '', role: '__proto__' }), [F_, F_, F_, T_, F_, F_]);
+});
+
+test('AC8/AC9: empty filters match everything; missing fields and unknown names neither throw nor match a Role', async () => {
+  const { filterRows } = await import('./app.js');
+  const f = (q, role) => filterRows(SEARCH_MEMOS, SEARCH_MEMBERS, { q, role })[4];
+  assert.equal(f('', ''), true);
+  assert.equal(f('ghost', ''), true);
+  assert.equal(f('NOBODY', ''), true);
+  assert.equal(f('undefined', ''), false);
+  assert.equal(f('', 'lead'), false);
+  assert.deepEqual(filterRows([{ from: 'x', to: 'y' }], [], { q: '', role: '' }), [true]);
+});
+
+test('AC1/AC3/AC8: parseFilter reads the first q and role, literally, with q clamped to 200', async () => {
+  const { parseFilter } = await import('./app.js');
+  const IMG = '<img src=x onerror="window.__pwned=1">';
+  assert.deepEqual(parseFilter(''), { q: '', role: '' });
+  assert.deepEqual(parseFilter('?q=brief&role=skeptic'), { q: 'brief', role: 'skeptic' });
+  assert.equal(parseFilter('?role=a&role=b').role, 'a');
+  assert.equal(parseFilter(`?q=${encodeURIComponent(IMG)}`).q, IMG);
+  assert.equal(parseFilter(`?q=${'x'.repeat(100000)}`).q.length, 200);
+});
+
+test('AC7: filterQuery sets or drops q and role through URLSearchParams and keeps other params', async () => {
+  const { filterQuery, parseFilter } = await import('./app.js');
+  const s = new URLSearchParams(filterQuery('', { q: 'a&role=x#y', role: '' }));
+  assert.equal(s.get('q'), 'a&role=x#y');
+  assert.equal(s.get('role'), null);
+  const kept = new URLSearchParams(filterQuery('?x=1&q=old', { q: '', role: 'skeptic' }));
+  assert.deepEqual([...kept], [['x', '1'], ['role', 'skeptic']]);
+  assert.equal(filterQuery('', { q: '', role: '' }), '');
+  assert.ok(filterQuery('', parseFilter(`?q=${'x'.repeat(100000)}`)).length < 300);
 });
 
 // The 3D office (docs/superpowers/specs/2026-11-13-team-office-3d-viewer-design.md).

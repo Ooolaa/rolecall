@@ -218,8 +218,10 @@ export function createServer({ root, team, port = 0 }) {
     if (req.headers.origin !== undefined && !hosts.some((h) => req.headers.origin === `http://${h}`)) return send(403, 'text/plain', 'Forbidden');
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(405, 'text/plain', 'Method not allowed');
     try {
-      if (req.url === '/api/state') return send(200, 'application/json', JSON.stringify(await readTeam(root, team)));
-      const file = STATIC.get(req.url);
+      // A plain split, not new URL(): URL would fold `/x/../server.mjs` or `//h/app.js` into a STATIC key.
+      const path = req.url.split('?')[0];
+      if (path === '/api/state') return send(200, 'application/json', JSON.stringify(await readTeam(root, team)));
+      const file = STATIC.get(path);
       if (!file) return send(404, 'text/plain', 'Not found');
       send(200, file[1], await readFile(join(here, file[0])));
     } catch {

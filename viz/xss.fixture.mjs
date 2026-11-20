@@ -16,6 +16,20 @@
 //        () => document.body.innerText.includes('S3-PING')   must be true.
 //   5. S2, against the live team: `node viz/server.mjs` (port 4747), navigate, and check that
 //      members, tasks and a team-lead -> Skeptic message render.
+//   Post room search (after the filter controls exist; same xss server):
+//   6. AC1: navigate http://127.0.0.1:4748/?q=<encodeURIComponent(IMG)>, wait 3 s, then
+//        () => ({ pwned: window.__pwned, imgs: document.querySelectorAll('img').length,
+//                 value: document.getElementById('f-q').value })
+//      Pass: { pwned: undefined, imgs: 0, value: IMG }.
+//   7. AC4: navigate http://127.0.0.1:4748/?role=<encodeURIComponent(IMG + 'x')>, wait 3 s, then
+//        () => ({ echoed: [...document.getElementById('f-role').options].some((o) => o.value === IMG + 'x' || o.textContent === IMG + 'x'),
+//                 value: document.getElementById('f-role').value,
+//                 hidden: document.querySelectorAll('#ledger .memo[hidden]').length })
+//      (with IMG as the literal string). Pass: { echoed: false, value: '', hidden: 0 }.
+//   8. AC6: navigate http://127.0.0.1:4748/, wait 3 s, then
+//        () => ({ roles: [...document.getElementById('f-role').options].map((o) => o.textContent),
+//                 imgs: document.querySelectorAll('img').length, pwned: window.__pwned })
+//      Pass: roles includes the literal IMG and '__proto__', imgs is 0, pwned is undefined.
 import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -49,6 +63,8 @@ if (flag === '--append') {
       { name: 'team-lead', agentType: 'team-lead', cwd: CWD },
       { name: IMG, agentType: 'team-builder', color: 'red" onerror="window.__pwned=1' },
       { name: 'Skeptic', agentType: 'team-skeptic', color: 'blue' },
+      { name: 'Proto', agentType: '__proto__' },
+      { name: 'Hostile', agentType: IMG },
     ],
   }));
   await put(join(dir, 'tasks', 'xss', '1.json'), JSON.stringify({ id: '1', subject: IMG, status: 'in_progress', owner: IMG, blockedBy: [] }));
